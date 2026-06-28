@@ -5,7 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Loader2, PlusCircle, TrendingDown, TrendingUp } from "lucide-react";
+import { CheckCircle2, Loader2, PlusCircle, TrendingDown, TrendingUp, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/select";
 import { CATEGORY_META } from "@/lib/mock-data";
 import { cn, formatCurrency } from "@/lib/utils";
+import { addTransaction } from "@/app/actions";
+import type { BankAccountRow } from "@/lib/supabase/types";
 
 const schema = z.object({
   amount: z.number().positive("Nominal harus lebih dari 0"),
@@ -31,6 +33,7 @@ const schema = z.object({
   name: z.string().min(2, "Nama transaksi min. 2 karakter").max(60),
   date: z.string().min(1, "Pilih tanggal"),
   notes: z.string().max(200).optional(),
+  bank_account_id: z.string().min(1, "Pilih rekening"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -38,9 +41,10 @@ type FormValues = z.infer<typeof schema>;
 const incomeCategories = ["salary", "freelance", "investment", "other"] as const;
 const expenseCategories = ["food", "transport", "shopping", "bills", "entertainment", "health", "other"] as const;
 
-export function QuickTransactionForm() {
+export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccountRow[] }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [rawAmount, setRawAmount] = useState("");
 
   const {
@@ -56,6 +60,7 @@ export function QuickTransactionForm() {
     defaultValues: {
       type: "expense",
       date: new Date().toISOString().split("T")[0],
+      bank_account_id: bankAccounts[0]?.id ?? "",
     },
   });
 
@@ -69,14 +74,40 @@ export function QuickTransactionForm() {
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 900));
-    setIsLoading(false);
-    setIsSuccess(true);
-    setTimeout(() => {
-      setIsSuccess(false);
-      reset({ type: "expense", date: new Date().toISOString().split("T")[0] });
-      setRawAmount("");
-    }, 2000);
+    setErrorMsg("");
+
+    try {
+      const result = await addTransaction({
+        name: data.name,
+        amount: data.amount,
+        type: data.type,
+        category: data.category,
+        date: data.date,
+        notes: data.notes,
+        bank_account_id: data.bank_account_id,
+      });
+
+      if (!result.success) {
+        setErrorMsg(result.error || "Gagal menyimpan transaksi");
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(false);
+      setIsSuccess(true);
+      setTimeout(() => {
+        setIsSuccess(false);
+        reset({
+          type: "expense",
+          date: new Date().toISOString().split("T")[0],
+          bank_account_id: bankAccounts[0]?.id ?? "",
+        });
+        setRawAmount("");
+      }, 2000);
+    } catch (err) {
+      setErrorMsg("Terjadi kesalahan jaringan. Coba lagi.");
+      setIsLoading(false);
+    }
   };
 
   const categoryOptions = type === "income" ? incomeCategories : expenseCategories;
@@ -120,6 +151,14 @@ export function QuickTransactionForm() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
+                {/* Error banner */}
+                {errorMsg && (
+                  <div className="flex items-center gap-2 rounded-lg bg-rose-500/10 border border-rose-500/20 px-3 py-2 text-sm text-rose-600">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    {errorMsg}
+                  </div>
+                )}
+
                 {/* Segmented Control – Type */}
                 <Controller
                   name="type"
@@ -222,6 +261,41 @@ export function QuickTransactionForm() {
                   />
                   {errors.category && (
                     <p className="text-xs text-rose-500">{errors.category.message}</p>
+                  )}
+                </div>
+
+                {/* Bank Account */}
+                <div className="space-y-1.5">
+                  <Label>Rekening</Label>
+                  <Controller
+                    name="bank_account_id"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Pilih rekening..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {bankAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              <span className="flex items-center gap-2">
+                                <span>{account.logo}</span>
+                                <span>{account.name}</span>
+                                <span className="text-[var(--muted-foreground)] text-xs ml-auto">
+                                  {formatCurrency(account.balance, true)}
+                                </span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.bank_account_id && (
+                    <p className="text-xs text-rose-500">{errors.bank_account_id.message}</p>
                   )}
                 </div>
 

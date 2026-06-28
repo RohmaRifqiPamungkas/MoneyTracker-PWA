@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ChevronLeft, ChevronRight, Inbox, TrendingUp, TrendingDown, ArrowUpDown } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Inbox, TrendingUp, TrendingDown, ArrowUpDown, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,25 +13,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RECENT_TRANSACTIONS, CATEGORY_META, BANK_ACCOUNTS } from "@/lib/mock-data";
+import { CATEGORY_META } from "@/lib/mock-data";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { removeTransaction } from "@/app/actions";
 import type { TransactionType } from "@/lib/types";
+import type { TransactionRow, BankAccountRow } from "@/lib/supabase/types";
 
 const PAGE_SIZE = 6;
 
-const BANK_MAP = Object.fromEntries(BANK_ACCOUNTS.map((b) => [b.id, b]));
-
-export function RecentTransactions() {
+export function RecentTransactions({
+  transactions,
+  bankAccounts,
+}: {
+  transactions: TransactionRow[];
+  bankAccounts: BankAccountRow[];
+}) {
+  const BANK_MAP = Object.fromEntries(bankAccounts.map((b) => [b.id, b]));
   const [search, setSearch]     = useState("");
   const [typeFilter, setFilter] = useState<"all" | TransactionType>("all");
   const [page, setPage]         = useState(1);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    return RECENT_TRANSACTIONS.filter((tx) => {
+    return transactions.filter((tx) => {
       const matchSearch =
         tx.name.toLowerCase().includes(search.toLowerCase()) ||
         CATEGORY_META[tx.category]?.label.toLowerCase().includes(search.toLowerCase()) ||
-        BANK_MAP[tx.bankAccountId]?.name.toLowerCase().includes(search.toLowerCase());
+        BANK_MAP[tx.bank_account_id]?.name.toLowerCase().includes(search.toLowerCase());
       const matchType = typeFilter === "all" || tx.type === typeFilter;
       return matchSearch && matchType;
     });
@@ -42,6 +50,16 @@ export function RecentTransactions() {
 
   const handleSearch = (v: string) => { setSearch(v); setPage(1); };
   const handleFilter = (v: string) => { setFilter(v as "all" | TransactionType); setPage(1); };
+
+  const handleDelete = async (id: string) => {
+    if (deletingId) return;
+    setDeletingId(id);
+    try {
+      await removeTransaction(id);
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <motion.div
@@ -100,8 +118,8 @@ export function RecentTransactions() {
                 </motion.div>
               ) : (
                 paginated.map((tx, i) => {
-                  const catMeta = CATEGORY_META[tx.category];
-                  const bank    = BANK_MAP[tx.bankAccountId];
+                  const catMeta = CATEGORY_META[tx.category as any];
+                  const bank    = BANK_MAP[tx.bank_account_id];
 
                   return (
                     <motion.div
@@ -130,15 +148,29 @@ export function RecentTransactions() {
                         </p>
                       </div>
 
-                      {/* Amount */}
-                      <span
-                        className={`text-sm font-semibold shrink-0 tabular-nums ${
-                          tx.type === "income" ? "text-emerald-500" : "text-rose-500"
-                        }`}
-                      >
-                        {tx.type === "income" ? "+" : "−"}
-                        {formatCurrency(tx.amount, true)}
-                      </span>
+                      {/* Amount + Delete */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span
+                          className={`text-sm font-semibold tabular-nums ${
+                            tx.type === "income" ? "text-emerald-500" : "text-rose-500"
+                          }`}
+                        >
+                          {tx.type === "income" ? "+" : "−"}
+                          {formatCurrency(tx.amount, true)}
+                        </span>
+                        <button
+                          onClick={() => handleDelete(tx.id)}
+                          disabled={deletingId === tx.id}
+                          className="ml-1 p-1 rounded-md text-[var(--muted-foreground)] hover:text-rose-500 hover:bg-rose-500/10 transition-colors disabled:opacity-40"
+                          aria-label="Hapus transaksi"
+                        >
+                          {deletingId === tx.id ? (
+                            <span className="block h-3.5 w-3.5 rounded-full border-2 border-rose-400 border-t-transparent animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
                     </motion.div>
                   );
                 })

@@ -3,8 +3,8 @@
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { FINANCIAL_INSIGHTS } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import type { Insight } from "@/lib/types";
 
 const insightStyles = {
   warning: {
@@ -23,31 +23,31 @@ const insightStyles = {
     text: "Informasi",
   },
   tip: {
-    bg: "bg-violet-500/8 border-violet-500/20",
-    label: "bg-violet-500/10 text-violet-600",
+    bg: "bg-purple-500/8 border-purple-500/20",
+    label: "bg-purple-500/10 text-purple-600",
     text: "Tips",
   },
 };
 
-export function FinancialInsights() {
+export function FinancialInsights({ insights }: { insights: Insight[] }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.35 }}
+      transition={{ duration: 0.5, delay: 0.4 }}
     >
-      <Card>
+      <Card className="h-full bg-gradient-to-br from-[var(--card)] to-[var(--background)]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="h-4 w-4 text-violet-500" />
-            Insight Keuangan
+            <Sparkles className="h-4 w-4 text-purple-500" />
+            AI Insights
           </CardTitle>
           <CardDescription className="text-xs">
             Analisis cerdas berdasarkan pola pengeluaran kamu
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0 grid gap-3 sm:grid-cols-2">
-          {FINANCIAL_INSIGHTS.map((insight, i) => {
+          {insights.map((insight, i) => {
             const style = insightStyles[insight.type];
             return (
               <motion.div
@@ -60,22 +60,15 @@ export function FinancialInsights() {
                   style.bg
                 )}
               >
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl shrink-0 leading-none mt-0.5">{insight.icon}</span>
-                  <div className="space-y-1.5">
-                    <span
-                      className={cn(
-                        "inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                        style.label
-                      )}
-                    >
-                      {style.text}
-                    </span>
-                    <p className="text-sm leading-relaxed text-[var(--foreground)]">
-                      {insight.message}
-                    </p>
-                  </div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider", style.label)}>
+                    {style.text}
+                  </span>
+                  <span className="text-base">{insight.icon}</span>
                 </div>
+                <p className="text-xs leading-relaxed text-[var(--foreground)] font-medium">
+                  {insight.message}
+                </p>
               </motion.div>
             );
           })}

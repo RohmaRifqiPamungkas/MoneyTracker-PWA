@@ -4,10 +4,10 @@ import { motion } from "framer-motion";
 import { Flag } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { SAVINGS_GOALS } from "@/lib/mock-data";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import type { SavingsGoalRow } from "@/lib/supabase/types";
 
-export function GoalsTracker() {
+export function GoalsTracker({ goals }: { goals: SavingsGoalRow[] }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -23,11 +23,10 @@ export function GoalsTracker() {
           <CardDescription className="text-xs">Progres menuju tujuan keuanganmu</CardDescription>
         </CardHeader>
 
-        <CardContent className="pt-0 px-4 pb-4">
-          <div className="space-y-0">
-            {SAVINGS_GOALS.map((goal, i) => {
-              const pct       = Math.min(Math.round((goal.currentAmount / goal.targetAmount) * 100), 100);
-              const remaining = goal.targetAmount - goal.currentAmount;
+        <CardContent className="pt-0 pb-4">
+          <div className="flex flex-col gap-4">
+            {goals.map((goal, i) => {
+              const pct       = Math.min(Math.round((goal.current_amount / goal.target_amount) * 100), 100);
               const done      = pct >= 100;
 
               return (
@@ -38,7 +37,7 @@ export function GoalsTracker() {
                   transition={{ delay: 0.06 * i, duration: 0.3 }}
                   className={cn(
                     "py-3",
-                    i < SAVINGS_GOALS.length - 1 && "border-b border-[var(--card-border)]/50"
+                    i < goals.length - 1 && "border-b border-[var(--card-border)]/50"
                   )}
                 >
                   {/* Row 1: Emoji + name + date  |  amounts + pct */}
@@ -50,16 +49,16 @@ export function GoalsTracker() {
                           {goal.name}
                         </p>
                         <p className="text-[11px] text-[var(--muted-foreground)] leading-tight mt-0.5">
-                          Target · {formatDate(goal.targetDate, "MMM yyyy")}
+                          Target · {formatDate(goal.target_date, "MMM yyyy")}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-baseline gap-1.5 shrink-0 ml-2 text-right">
                       <span className="text-[11px] text-[var(--muted-foreground)] tabular-nums">
-                        {formatCurrency(goal.currentAmount, true)}
+                        {formatCurrency(goal.current_amount, true)}
                         <span className="opacity-50"> / </span>
-                        {formatCurrency(goal.targetAmount, true)}
+                        {formatCurrency(goal.target_amount, true)}
                       </span>
                       <span className={cn(
                         "text-xs font-semibold tabular-nums w-8 text-right",

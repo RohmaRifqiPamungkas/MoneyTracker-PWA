@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   AreaChart,
   Area,
@@ -13,8 +13,8 @@ import {
 } from "recharts";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { MONTHLY_DATA } from "@/lib/mock-data";
 import { formatCurrency } from "@/lib/utils";
+import type { MonthlyData } from "@/lib/types";
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -59,8 +59,11 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   );
 }
 
-export function CashflowChart() {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+export function CashflowChart({ data }: { data: MonthlyData[] }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <motion.div
@@ -90,13 +93,13 @@ export function CashflowChart() {
           </div>
         </CardHeader>
         <CardContent className="pt-4 pb-2">
-          <div className="h-[260px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={MONTHLY_DATA}
-                margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
-                onMouseLeave={() => setActiveIndex(null)}
-              >
+          <div className="h-[250px] w-full mt-4">
+            {mounted && (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={data}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
                 <defs>
                   <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -153,6 +156,7 @@ export function CashflowChart() {
                 />
               </AreaChart>
             </ResponsiveContainer>
+            )}
           </div>
         </CardContent>
       </Card>

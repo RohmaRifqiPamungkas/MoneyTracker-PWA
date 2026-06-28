@@ -1,11 +1,12 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight, PiggyBank, DollarSign } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownRight, PiggyBank } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, getTrendBg } from "@/lib/utils";
-import { FINANCIAL_SUMMARY } from "@/lib/mock-data";
+import type { FinancialSummary } from "@/lib/types";
 
 interface SummaryCardProps {
   title: string;
@@ -20,56 +21,74 @@ interface SummaryCardProps {
 function SummaryCard({ title, value, growth, subtitle, icon, accentColor, delay = 0 }: SummaryCardProps) {
   const isPositive = growth >= 0;
 
+  // State untuk memastikan text dimuat dengan aman di sisi client
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay, ease: "easeOut" }}
+      transition={{ duration: 0.5, delay }}
     >
-      <Card className="group relative overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-default">
-        {/* Accent glow */}
+      <Card className="relative overflow-hidden group">
+        {/* Subtle accent line on top */}
         <div
-          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl pointer-events-none"
+          className="absolute top-0 left-0 right-0 h-1 opacity-80"
+          style={{ backgroundColor: accentColor }}
+        />
+
+        {/* Hover subtle glow */}
+        <div
+          className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 pointer-events-none"
           style={{
-            background: `radial-gradient(circle at 80% 20%, ${accentColor}15 0%, transparent 60%)`,
+            background: `radial-gradient(circle at top right, ${accentColor}, transparent 70%)`
           }}
         />
 
         <CardContent className="p-4 sm:p-5">
-          <div className="flex items-start justify-between mb-3">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-xl"
-              style={{ backgroundColor: `${accentColor}18` }}
-            >
-              <span style={{ color: accentColor }}>{icon}</span>
+          <div className="flex items-start justify-between mb-4">
+            <div className="space-y-1.5">
+              <p className="text-[13px] font-medium text-[var(--muted-foreground)] tracking-wide">
+                {title}
+              </p>
+
+              {/* PERUBAHAN UTAMA: Tunda konversi mata uang sampai selesai mounting ke browser */}
+              <h3 className="text-xl sm:text-2xl font-bold text-[var(--foreground)] tabular-nums tracking-tight">
+                {isMounted ? formatCurrency(value) : "Rp0"}
+              </h3>
+
             </div>
-            <Badge className={getTrendBg(growth)}>
-              {isPositive ? (
-                <ArrowUpRight className="h-3 w-3" />
-              ) : (
-                <ArrowDownRight className="h-3 w-3" />
-              )}
-              {Math.abs(growth)}%
-            </Badge>
+            <div
+              className="p-2.5 rounded-xl shadow-sm border border-[var(--card-border)] bg-[var(--card)] relative overflow-hidden"
+              style={{ color: accentColor }}
+            >
+              <div
+                className="absolute inset-0 opacity-[0.08]"
+                style={{ backgroundColor: accentColor }}
+              />
+              {icon}
+            </div>
           </div>
 
-          <p className="text-sm text-[var(--muted-foreground)] mb-1">{title}</p>
-          <p className="text-xl font-bold text-[var(--foreground)] tracking-tight">
-            {formatCurrency(value, true)}
-          </p>
-          {subtitle && (
-            <p className="text-xs text-[var(--muted-foreground)] mt-1">{subtitle}</p>
-          )}
-
-          {/* Mini trend bar */}
-          <div className="mt-3 h-1 w-full rounded-full bg-[var(--muted)] overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-700"
-              style={{
-                width: `${Math.min(100, Math.abs(growth) * 5 + 40)}%`,
-                backgroundColor: accentColor,
-              }}
-            />
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className={`px-1.5 py-0 border-transparent shadow-none font-semibold ${getTrendBg(growth)}`}
+            >
+              <span className="flex items-center gap-0.5 text-xs">
+                {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                {Math.abs(growth)}%
+              </span>
+            </Badge>
+            {subtitle && (
+              <span className="text-[11px] text-[var(--muted-foreground)]">
+                {subtitle}
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -77,50 +96,45 @@ function SummaryCard({ title, value, growth, subtitle, icon, accentColor, delay 
   );
 }
 
-export function FinancialOverview() {
-  const { totalBalance, totalIncome, totalExpenses, totalSavings, balanceGrowth, incomeGrowth, expenseGrowth, savingsRate } =
-    FINANCIAL_SUMMARY;
-
-  const cards = [
-    {
-      title: "Total Saldo",
-      value: totalBalance,
-      growth: balanceGrowth,
-      subtitle: "vs. bulan lalu",
-      icon: <Wallet className="h-5 w-5" />,
-      accentColor: "#10b981",
-    },
-    {
-      title: "Total Pemasukan",
-      value: totalIncome,
-      growth: incomeGrowth,
-      subtitle: "bulan ini",
-      icon: <TrendingUp className="h-5 w-5" />,
-      accentColor: "#6366f1",
-    },
-    {
-      title: "Total Pengeluaran",
-      value: totalExpenses,
-      growth: expenseGrowth,
-      subtitle: "bulan ini",
-      icon: <TrendingDown className="h-5 w-5" />,
-      accentColor: "#f43f5e",
-    },
-    {
-      title: "Total Tabungan",
-      value: totalSavings,
-      growth: savingsRate,
-      subtitle: `Rasio tabungan ${savingsRate}%`,
-      icon: <PiggyBank className="h-5 w-5" />,
-      accentColor: "#f59e0b",
-    },
-  ];
-
+export function FinancialOverview({ summary }: { summary: FinancialSummary }) {
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-      {cards.map((card, i) => (
-        <SummaryCard key={card.title} {...card} delay={i * 0.08} />
-      ))}
+      <SummaryCard
+        title="Total Saldo"
+        value={summary.totalBalance}
+        growth={summary.balanceGrowth}
+        subtitle="vs. bulan lalu"
+        icon={<Wallet className="h-5 w-5" />}
+        accentColor="#10b981"
+        delay={0}
+      />
+      <SummaryCard
+        title="Pemasukan"
+        value={summary.totalIncome}
+        growth={summary.incomeGrowth}
+        subtitle="bulan ini"
+        icon={<TrendingUp className="h-5 w-5" />}
+        accentColor="#6366f1"
+        delay={0.08}
+      />
+      <SummaryCard
+        title="Pengeluaran"
+        value={summary.totalExpenses}
+        growth={summary.expenseGrowth}
+        subtitle="bulan ini"
+        icon={<TrendingDown className="h-5 w-5" />}
+        accentColor="#f43f5e"
+        delay={0.16}
+      />
+      <SummaryCard
+        title="Total Tabungan"
+        value={summary.totalSavings}
+        growth={summary.savingsRate}
+        subtitle={`Rasio tabungan ${summary.savingsRate}%`}
+        icon={<PiggyBank className="h-5 w-5" />}
+        accentColor="#f59e0b"
+        delay={0.24}
+      />
     </div>
   );
 }

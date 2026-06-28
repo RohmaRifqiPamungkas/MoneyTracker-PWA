@@ -4,10 +4,12 @@ import { motion } from "framer-motion";
 import { Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { BUDGET_ITEMS, CATEGORY_META } from "@/lib/mock-data";
+import { CATEGORY_META } from "@/lib/mock-data";
 import { formatCurrency, cn } from "@/lib/utils";
+import type { BudgetItemRow } from "@/lib/supabase/types";
+import type { Category } from "@/lib/types";
 
-export function BudgetProgress() {
+export function BudgetProgress({ budgetItems }: { budgetItems: BudgetItemRow[] }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -23,15 +25,15 @@ export function BudgetProgress() {
           <CardDescription className="text-xs">Progres pengeluaran per kategori · Juni 2026</CardDescription>
         </CardHeader>
 
-        <CardContent className="pt-0 px-4 pb-4">
-          <div className="space-y-0">
-            {BUDGET_ITEMS.map((item, i) => {
+        <CardContent className="pt-0 pb-4">
+          <div className="flex flex-col gap-4">
+            {budgetItems.map((item, i) => {
               const pct       = Math.min(Math.round((item.spent / item.limit) * 100), 999);
               const isOver    = pct >= 100;
               const isWarning = pct >= 80 && pct < 100;
-              const meta      = CATEGORY_META[item.category];
+              const meta      = CATEGORY_META[item.category as Category] || { emoji: "📝", label: item.category };
 
-              const barColor = isOver ? "#f43f5e" : isWarning ? "#f59e0b" : item.color;
+              const barColor = isOver ? "#f43f5e" : isWarning ? "#f59e0b" : "var(--primary)";
               const pctColor = isOver
                 ? "text-rose-500"
                 : isWarning
@@ -46,14 +48,14 @@ export function BudgetProgress() {
                   transition={{ delay: 0.05 * i, duration: 0.3 }}
                   className={cn(
                     "py-3",
-                    i < BUDGET_ITEMS.length - 1 && "border-b border-[var(--card-border)]/50"
+                    i < budgetItems.length - 1 && "border-b border-[var(--card-border)]/50"
                   )}
                 >
                   {/* Row 1: Label & percentage */}
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-base leading-none shrink-0">{meta?.emoji}</span>
-                      <span className="text-sm font-medium text-[var(--foreground)] truncate">{item.label}</span>
+                      <span className="text-base leading-none shrink-0">{meta.emoji}</span>
+                      <span className="text-sm font-medium text-[var(--foreground)] truncate">{meta.label}</span>
                       {(isOver || isWarning) && (
                         <span
                           className={cn(

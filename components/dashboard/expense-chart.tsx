@@ -1,17 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CATEGORY_EXPENSES } from "@/lib/mock-data";
 import { formatCurrency, cn } from "@/lib/utils";
+import type { CategoryExpense } from "@/lib/types";
 
-export function ExpenseChart() {
+export function ExpenseChart({ data }: { data: CategoryExpense[] }) {
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
-  const total = CATEGORY_EXPENSES.reduce((s, c) => s + c.amount, 0);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const active = activeIdx !== null ? CATEGORY_EXPENSES[activeIdx] : null;
+  const total = data.reduce((s, c) => s + c.amount, 0);
+
+  const active = activeIdx !== null ? data[activeIdx] : null;
 
   return (
     <motion.div
@@ -28,38 +33,40 @@ export function ExpenseChart() {
         </CardHeader>
         <CardContent className="pb-4">
           {/* Donut + center label */}
-          <div className="relative h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={CATEGORY_EXPENSES}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={58}
-                  outerRadius={82}
-                  dataKey="amount"
-                  paddingAngle={2}
-                  onMouseEnter={(_, i) => setActiveIdx(i)}
-                  onMouseLeave={() => setActiveIdx(null)}
-                  animationBegin={200}
-                  animationDuration={900}
-                >
-                  {CATEGORY_EXPENSES.map((entry, i) => (
-                    <Cell
-                      key={entry.category}
-                      fill={entry.color}
-                      opacity={activeIdx === null || activeIdx === i ? 1 : 0.4}
-                      stroke="transparent"
-                      style={{
-                        transform: activeIdx === i ? "scale(1.05)" : "scale(1)",
-                        transformOrigin: "center",
-                        transition: "opacity 0.15s, transform 0.15s",
-                      }}
-                    />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="relative h-[220px] w-full flex items-center justify-center mt-2">
+            {mounted && (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={data}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={58}
+                    outerRadius={82}
+                    dataKey="amount"
+                    paddingAngle={2}
+                    onMouseEnter={(_, i) => setActiveIdx(i)}
+                    onMouseLeave={() => setActiveIdx(null)}
+                    animationBegin={200}
+                    animationDuration={900}
+                  >
+                    {data.map((entry, i) => (
+                      <Cell
+                        key={entry.category}
+                        fill={entry.color}
+                        opacity={activeIdx === null || activeIdx === i ? 1 : 0.4}
+                        stroke="transparent"
+                        style={{
+                          transform: activeIdx === i ? "scale(1.05)" : "scale(1)",
+                          transformOrigin: "center",
+                          transition: "opacity 0.15s, transform 0.15s",
+                        }}
+                      />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            )}
 
             {/* Center text overlay */}
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
@@ -81,8 +88,8 @@ export function ExpenseChart() {
           </div>
 
           {/* Legend */}
-          <div className="mt-3 grid grid-cols-2 gap-1">
-            {CATEGORY_EXPENSES.map((entry, i) => (
+          <div className="mt-4 flex flex-col gap-2">
+            {data.map((entry, i) => (
               <button
                 key={entry.category}
                 onMouseEnter={() => setActiveIdx(i)}

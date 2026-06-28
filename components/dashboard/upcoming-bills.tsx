@@ -4,13 +4,13 @@ import { motion } from "framer-motion";
 import { CalendarClock, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { UPCOMING_BILLS } from "@/lib/mock-data";
 import { formatCurrency, formatDate, daysUntil, cn } from "@/lib/utils";
+import type { UpcomingBillRow } from "@/lib/supabase/types";
 
-export function UpcomingBills() {
-  const billsWithDays = UPCOMING_BILLS.map((bill) => ({
+export function UpcomingBills({ bills }: { bills: UpcomingBillRow[] }) {
+  const billsWithDays = bills.map((bill) => ({
     ...bill,
-    daysLeft: daysUntil(bill.dueDate),
+    daysLeft: daysUntil(bill.due_date),
   })).sort((a, b) => a.daysLeft - b.daysLeft);
 
   return (
@@ -57,12 +57,14 @@ export function UpcomingBills() {
                 {/* Info */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <p className="truncate text-sm font-medium text-[var(--foreground)]">{bill.name}</p>
+                    <div>
+                      <p className="text-xs font-semibold text-[var(--foreground)]">{bill.name}</p>
+                      <p className="text-[10px] text-[var(--muted-foreground)] flex items-center gap-1 mt-0.5">
+                        Jatuh tempo: {formatDate(bill.due_date)}
+                      </p>
+                    </div>
                     {isUrgent && <AlertTriangle className="h-3 w-3 text-rose-500 shrink-0" />}
                   </div>
-                  <p className="text-xs text-[var(--muted-foreground)]">
-                    {formatDate(bill.dueDate, "dd MMM yyyy")}
-                  </p>
                 </div>
 
                 {/* Amount + Days badge */}

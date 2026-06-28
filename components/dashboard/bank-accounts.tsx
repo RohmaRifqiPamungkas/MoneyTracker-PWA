@@ -27,9 +27,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { BANK_ACCOUNTS, BANK_PRESETS, BANK_TYPE_META } from "@/lib/mock-data";
+import { BANK_PRESETS } from "@/lib/mock-data";
 import { formatCurrency, cn } from "@/lib/utils";
-import type { BankAccount, BankAccountType } from "@/lib/types";
+import { addBankAccount } from "@/app/actions";
+import { AlertCircle, Loader2 } from "lucide-react";
+import type { BankAccountType, BankPreset } from "@/lib/types";
+import type { BankAccountRow } from "@/lib/supabase/types";
 
 /* ── Add-account schema ────────────────────────────────── */
 const addSchema = z.object({
@@ -49,8 +52,7 @@ function TypeIcon({ type, size = 14 }: { type: BankAccountType; size?: number })
 }
 
 /* ── Single account card ───────────────────────────────── */
-function AccountCard({ account, hidden }: { account: BankAccount; hidden: boolean }) {
-  const typeMeta = BANK_TYPE_META[account.type];
+function AccountCard({ account, hidden }: { account: BankAccountRow; hidden: boolean }) {
   return (
     <div
       className="relative shrink-0 w-52 h-[130px] rounded-2xl overflow-hidden cursor-pointer group"
@@ -75,7 +77,7 @@ function AccountCard({ account, hidden }: { account: BankAccount; hidden: boolea
         {/* Top row */}
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-[11px] font-medium text-white/70 leading-none">{account.bankName}</p>
+            <p className="text-[11px] font-medium text-white/70 leading-none">{account.bank_name}</p>
             <p className="text-sm font-semibold text-white mt-0.5 leading-tight">{account.name}</p>
           </div>
           <span className="text-xl leading-none">{account.logo}</span>
@@ -84,10 +86,10 @@ function AccountCard({ account, hidden }: { account: BankAccount; hidden: boolea
         {/* Bottom row */}
         <div>
           <p className="text-[10px] text-white/60 mb-1 flex items-center gap-1">
-            <TypeIcon type={account.type} size={10} />
-            {typeMeta.label}
-            {account.accountNumber && (
-              <span className="ml-1">•••• {account.accountNumber}</span>
+            <TypeIcon type={account.type as BankAccountType} size={10} />
+            {account.type}
+            {account.account_number && (
+              <span className="ml-1">•••• {account.account_number}</span>
             )}
           </p>
           <p className="text-base font-bold text-white tracking-tight">
@@ -109,6 +111,8 @@ function AddAccountDialog({
 }) {
   const [rawBalance, setRawBalance] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [selectedPreset, setSelectedPreset] = useState<string>("");
 
   const {
@@ -129,16 +133,49 @@ function AddAccountDialog({
     setValue("initialBalance", Number(raw), { shouldValidate: !!raw });
   };
 
-  const onSubmit = async (_data: AddFormValues) => {
-    await new Promise((r) => setTimeout(r, 800));
-    setIsSuccess(true);
-    setTimeout(() => {
-      setIsSuccess(false);
-      reset({ initialBalance: 0 });
-      setRawBalance("");
-      setSelectedPreset("");
-      onOpenChange(false);
-    }, 1800);
+  const onSubmit = async (data: AddFormValues) => {
+    setIsLoading(true);
+    setErrorMsg("");
+
+    // Cari preset yang dipilih untuk ambil metadata
+    const preset = BANK_PRESETS.find((p) => p.id === data.presetId);
+    if (!preset) {
+      setErrorMsg("Preset rekening tidak ditemukan");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const result = await addBankAccount({
+        name: data.nickname,
+        bank_name: preset.fullName,
+        type: preset.type as "bank" | "ewallet" | "cash",
+        account_number: data.accountNumber || undefined,
+        balance: data.initialBalance,
+        color: preset.color,
+        logo: preset.logo,
+        gradient: preset.gradient,
+      });
+
+      if (!result.success) {
+        setErrorMsg(result.error || "Gagal menyimpan rekening");
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(false);
+      setIsSuccess(true);
+      setTimeout(() => {
+        setIsSuccess(false);
+        reset({ initialBalance: 0 });
+        setRawBalance("");
+        setSelectedPreset("");
+        onOpenChange(false);
+      }, 1800);
+    } catch {
+      setErrorMsg("Terjadi kesalahan jaringan. Coba lagi.");
+      setIsLoading(false);
+    }
   };
 
   const handleClose = (v: boolean) => {
@@ -195,6 +232,14 @@ function AddAccountDialog({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
+                {/* Error banner */}
+                {errorMsg && (
+                  <div className="flex items-center gap-2 rounded-lg bg-rose-500/10 border border-rose-500/20 px-3 py-2 text-sm text-rose-600">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    {errorMsg}
+                  </div>
+                )}
+
                 {/* Preset grid */}
                 <Controller
                   name="presetId"
@@ -320,9 +365,12 @@ function AddAccountDialog({
                   </div>
                 </div>
 
-                <Button type="submit" size="lg" className="w-full rounded-xl">
-                  <Plus className="h-4 w-4" />
-                  Tambah Rekening
+                <Button type="submit" size="lg" className="w-full rounded-xl" disabled={isLoading}>
+                  {isLoading ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Menyimpan...</>
+                  ) : (
+                    <><Plus className="h-4 w-4" /> Tambah Rekening</>
+                  )}
                 </Button>
               </motion.form>
             )}
@@ -338,7 +386,7 @@ function PresetButton({
   selected,
   onSelect,
 }: {
-  preset: (typeof BANK_PRESETS)[number];
+  preset: BankPreset;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -367,13 +415,15 @@ function PresetButton({
 }
 
 /* ── Main widget ───────────────────────────────────────── */
-export function BankAccountsWidget() {
+export function BankAccountsWidget({ accounts }: { accounts: BankAccountRow[] }) {
   const [addOpen, setAddOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
-
-  const totalBalance = BANK_ACCOUNTS.reduce((s, a) => s + a.balance, 0);
-  const bankCount    = BANK_ACCOUNTS.filter((a) => a.type === "bank").length;
-  const ewalletCount = BANK_ACCOUNTS.filter((a) => a.type === "ewallet").length;
+  const [showAll, setShowAll] = useState(false);
+  
+  const displayedAccounts = showAll ? accounts : accounts.slice(0, 3);
+  const totalBalance = accounts.reduce((s, a) => s + a.balance, 0);
+  const bankCount    = accounts.filter((a) => a.type === "bank").length;
+  const ewalletCount = accounts.filter((a) => a.type === "ewallet").length;
 
   return (
     <motion.div
@@ -390,7 +440,7 @@ export function BankAccountsWidget() {
                 Rekening & Dompet
               </CardTitle>
               <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                {bankCount} bank · {ewalletCount} e-wallet · {BANK_ACCOUNTS.filter(a => a.type === "cash").length} tunai
+                {bankCount} bank · {ewalletCount} e-wallet · {accounts.filter(a => a.type === "cash").length} tunai
               </p>
             </div>
             <button
@@ -419,7 +469,7 @@ export function BankAccountsWidget() {
         <CardContent className="pt-0">
           {/* Horizontal scroll carousel */}
           <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-thin snap-x snap-mandatory">
-            {BANK_ACCOUNTS.map((account, i) => (
+            {displayedAccounts.map((account, i) => (
               <motion.div
                 key={account.id}
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -432,6 +482,15 @@ export function BankAccountsWidget() {
             ))}
 
             {/* Add account card */}
+            {accounts.length > 3 && (
+              <button
+                onClick={() => setShowAll(!showAll)}
+                className="snap-start shrink-0 w-32 h-[130px] rounded-2xl border-2 border-dashed border-[var(--card-border)] flex flex-col items-center justify-center gap-2 text-[var(--muted-foreground)] hover:border-emerald-500/50 hover:text-emerald-500 hover:bg-emerald-500/5 transition-all duration-200"
+              >
+                <span className="text-xs font-medium text-center px-2">{showAll ? "Tutup" : "Lihat Semua"}</span>
+              </button>
+            )}
+
             <button
               onClick={() => setAddOpen(true)}
               className="snap-start shrink-0 w-32 h-[130px] rounded-2xl border-2 border-dashed border-[var(--card-border)] flex flex-col items-center justify-center gap-2 text-[var(--muted-foreground)] hover:border-emerald-500/50 hover:text-emerald-500 hover:bg-emerald-500/5 transition-all duration-200"
@@ -445,8 +504,7 @@ export function BankAccountsWidget() {
 
           {/* Account list */}
           <div className="hidden md:block mt-4 space-y-1">
-            {BANK_ACCOUNTS.map((account) => {
-              const typeMeta = BANK_TYPE_META[account.type];
+            {accounts.map((account) => {
               const pct = Math.round((account.balance / totalBalance) * 100);
               return (
                 <div
@@ -470,14 +528,13 @@ export function BankAccountsWidget() {
                       <Badge
                         variant="secondary"
                         className="text-[10px] px-1.5 py-0 h-4 gap-1"
-                        style={{ color: typeMeta.color }}
                       >
-                        <TypeIcon type={account.type} size={9} />
-                        {typeMeta.label}
+                        <TypeIcon type={account.type as BankAccountType} size={9} />
+                        <span className="capitalize">{account.type}</span>
                       </Badge>
-                      {account.accountNumber && (
+                      {account.account_number && (
                         <span className="text-[10px] text-[var(--muted-foreground)]">
-                          •••• {account.accountNumber}
+                          •••• {account.account_number}
                         </span>
                       )}
                     </div>
