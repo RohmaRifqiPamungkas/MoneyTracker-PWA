@@ -261,8 +261,15 @@ export function BudgetClient({ initialBudgets }: { initialBudgets: BudgetItemRow
                       <div className="space-y-2">
                         <Progress
                           value={Math.min(pct, 100)}
-                          indicatorClassName={progressBgClass}
-                          className="h-2 rounded-full bg-[var(--muted)] border border-[var(--card-border)]/10"
+                          className={cn(
+                            "h-2 rounded-full bg-[var(--muted)] border border-[var(--card-border)]/10",
+                            // Perbaikan: Mengincar elemen indikator di dalam Progress menggunakan [&>div]
+                            isOver
+                              ? "[&>div]:bg-rose-500"
+                              : isWarning
+                                ? "[&>div]:bg-amber-500"
+                                : "[&>div]:bg-emerald-500 dark:[&>div]:bg-emerald-600"
+                          )}
                         />
                         <div className="flex justify-between items-center text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)] tabular-nums">
                           <span className="truncate max-w-[80%]">
