@@ -8,20 +8,29 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number, compact = false): string {
-  if (compact && amount >= 1_000_000) {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 1,
-      notation: "compact",
-    }).format(amount);
+  // Gunakan format manual agar server (Node.js) dan browser menghasilkan
+  // string yang IDENTIK — mencegah React hydration mismatch.
+  // Intl.NumberFormat("id-ID") menghasilkan spasi berbeda antar runtime.
+  if (compact && amount >= 1_000_000_000) {
+    return "Rp" + (amount / 1_000_000_000).toFixed(1).replace(".", ",") + " M";
   }
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(amount);
+  if (compact && amount >= 1_000_000) {
+    return "Rp" + (amount / 1_000_000).toFixed(1).replace(".", ",") + " jt";
+  }
+  if (compact && amount >= 1_000) {
+    return "Rp" + (amount / 1_000).toFixed(0) + " rb";
+  }
+  // Format penuh: pisahkan ribuan dengan titik, ganti koma desimal
+  const parts = Math.abs(Math.round(amount)).toString().split("");
+  const thousands: string[] = [];
+  parts.reverse().forEach((d, i) => {
+    if (i > 0 && i % 3 === 0) thousands.push(".");
+    thousands.push(d);
+  });
+  const formatted = thousands.reverse().join("");
+  return (amount < 0 ? "-Rp" : "Rp") + formatted;
 }
+
 
 export function formatDate(dateStr: string, fmt = "dd MMM yyyy"): string {
   try {
