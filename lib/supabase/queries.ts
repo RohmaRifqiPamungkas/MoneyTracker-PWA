@@ -4,14 +4,6 @@
  * Semua fungsi fetch data dari Supabase.
  * Gunakan fungsi-fungsi ini di Server Components atau Server Actions
  * untuk menggantikan import dari "@/lib/mock-data".
- *
- * Contoh penggunaan di Server Component:
- *   import { getTransactions } from "@/lib/supabase/queries";
- *   const transactions = await getTransactions();
- *
- * NOTE: Beberapa fungsi mutasi menggunakan `as any` untuk bypass
- * TypeScript inference yang belum sempurna sebelum Supabase CLI
- * men-generate types otomatis dari schema yang sudah dibuat.
  */
 
 import { createClient } from "./server";
@@ -23,17 +15,32 @@ import type {
   UpcomingBillRow,
 } from "./types";
 
+// Helper internal untuk generate string ISO batas awal dan akhir bulan (YYYY-MM-DD)
+function getMonthBounds(month?: number, year?: number) {
+  const now = new Date();
+  const targetMonth = month !== undefined ? month : now.getMonth();
+  const targetYear = year !== undefined ? year : now.getFullYear();
+
+  const start = new Date(targetYear, targetMonth, 1).toISOString().slice(0, 10);
+  const end = new Date(targetYear, targetMonth + 1, 0).toISOString().slice(0, 10);
+
+  return { start, end };
+}
+
 // ── Transactions ────────────────────────────────────────────────────────────
 
 /**
- * Ambil semua transaksi, diurutkan dari yang terbaru.
- * @param limit - Jumlah maksimal transaksi (default: 50)
+ * Ambil semua transaksi berdasarkan filter bulan dan tahun tertentu.
  */
-export async function getTransactions(limit = 50): Promise<TransactionRow[]> {
+export async function getTransactions(month?: number, year?: number, limit = 50): Promise<TransactionRow[]> {
   const supabase = await createClient();
+  const { start, end } = getMonthBounds(month, year);
+
   const { data, error } = await supabase
     .from("transactions")
     .select("*")
+    .gte("date", start)
+    .lte("date", end)
     .order("date", { ascending: false })
     .limit(limit);
 
@@ -195,15 +202,11 @@ export async function getUpcomingBills(): Promise<UpcomingBillRow[]> {
 // ── Financial Summary ───────────────────────────────────────────────────────
 
 /**
- * Hitung ringkasan keuangan secara real-time dari data transaksi.
- * Ini menggantikan FINANCIAL_SUMMARY dari mock-data.
+ * Hitung ringkasan keuangan secara real-time berdasarkan parameter bulan & tahun aktif.
  */
-export async function getFinancialSummary() {
+export async function getFinancialSummary(month?: number, year?: number) {
   const supabase = await createClient();
-
-  const now   = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const { start, end } = getMonthBounds(month, year);
 
   const [txResult, bankResult] = await Promise.all([
     supabase
@@ -214,18 +217,18 @@ export async function getFinancialSummary() {
     supabase.from("bank_accounts").select("balance"),
   ]);
 
-  const transactions = (txResult.data  ?? []) as Pick<TransactionRow, "amount" | "type">[];
+  const transactions = (txResult.data ?? []) as Pick<TransactionRow, "amount" | "type">[];
   const bankAccounts = (bankResult.data ?? []) as Pick<BankAccountRow, "balance">[];
 
-  const totalBalance  = bankAccounts.reduce((sum, b) => sum + b.balance, 0);
-  const totalIncome   = transactions
+  const totalBalance = bankAccounts.reduce((sum, b) => sum + b.balance, 0);
+  const totalIncome = transactions
     .filter((t) => t.type === "income")
     .reduce((sum, t) => sum + t.amount, 0);
   const totalExpenses = transactions
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
-  const totalSavings  = totalIncome - totalExpenses;
-  const savingsRate   = totalIncome > 0 ? Math.round((totalSavings / totalIncome) * 100) : 0;
+  const totalSavings = totalIncome - totalExpenses;
+  const savingsRate = totalIncome > 0 ? Math.round((totalSavings / totalIncome) * 100) : 0;
 
   return {
     totalBalance,
@@ -234,7 +237,7 @@ export async function getFinancialSummary() {
     totalSavings,
     savingsRate,
     balanceGrowth: 0,
-    incomeGrowth:  0,
+    incomeGrowth: 0,
     expenseGrowth: 0,
   };
 }
@@ -242,7 +245,7 @@ export async function getFinancialSummary() {
 // ── Chart Compute ───────────────────────────────────────────────────────────
 
 /**
- * Hitung data pemasukan & pengeluaran per bulan untuk CashflowChart.
+ * Hitung data pemasukan & pengeluaran per bulan untuk tren tahunan CashflowChart.
  */
 export async function getMonthlyData() {
   const supabase = await createClient();
@@ -253,19 +256,17 @@ export async function getMonthlyData() {
 
   if (error || !data) return [];
 
-  // Group by month (MMM format)
   const monthlyMap = new Map<string, { month: string; income: number; expense: number }>();
-  
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-  
+
   data.forEach((tx) => {
     const d = new Date(tx.date);
     const monthStr = monthNames[d.getMonth()];
-    
+
     if (!monthlyMap.has(monthStr)) {
       monthlyMap.set(monthStr, { month: monthStr, income: 0, expense: 0 });
     }
-    
+
     const entry = monthlyMap.get(monthStr)!;
     if (tx.type === "income") entry.income += tx.amount;
     else entry.expense += tx.amount;
@@ -275,15 +276,11 @@ export async function getMonthlyData() {
 }
 
 /**
- * Hitung distribusi pengeluaran berdasarkan kategori untuk ExpenseChart.
+ * Hitung distribusi pengeluaran berdasarkan kategori untuk filter bulan & tahun terpilih.
  */
-export async function getCategoryExpenses() {
+export async function getCategoryExpenses(month?: number, year?: number) {
   const supabase = await createClient();
-  
-  // Ambil transaksi bulan ini saja untuk kategori
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const { start, end } = getMonthBounds(month, year);
 
   const { data, error } = (await supabase
     .from("transactions")
@@ -295,13 +292,22 @@ export async function getCategoryExpenses() {
   if (error || !data) return [];
 
   const CATEGORY_META: Record<string, { label: string; color: string }> = {
-    food:          { label: "Makanan",      color: "#10b981" },
-    transport:     { label: "Transportasi", color: "#6366f1" },
-    shopping:      { label: "Belanja",      color: "#f59e0b" },
-    bills:         { label: "Tagihan",      color: "#3b82f6" },
-    entertainment: { label: "Hiburan",      color: "#ec4899" },
-    health:        { label: "Kesehatan",    color: "#14b8a6" },
-    other:         { label: "Lainnya",      color: "#94a3b8" },
+    food: { label: "Makanan", color: "#10b981" },
+    transport: { label: "Transportasi", color: "#6366f1" },
+    shopping: { label: "Belanja", color: "#f59e0b" },
+    bills: { label: "Tagihan", color: "#3b82f6" },
+    entertainment: { label: "Hiburan", color: "#ec4899" },
+    health: { label: "Kesehatan", color: "#14b8a6" },
+    relationship: { label: "Pacaran / Pasangan", color: "#f43f5e" },
+    hobby: { label: "Hobi & Kreatif", color: "#a855f7" },
+    groceries: { label: "Belanja Bulanan", color: "#22c55e" },
+    coffee: { label: "Kopi & Nongkrong", color: "#78350f" },
+    education: { label: "Edukasi & Buku", color: "#4f46e5" },
+    charity: { label: "Donasi & Zakat", color: "#f97316" },
+    selfcare: { label: "Perawatan Diri", color: "#df168a" },
+    emergency: { label: "Dana Darurat", color: "#ef4444" },
+    saving: { label: "Tabungan", color: "#db2777" },
+    other: { label: "Lainnya", color: "#94a3b8" },
   };
 
   const totalExpense = data.reduce((sum, tx) => sum + tx.amount, 0);
@@ -325,4 +331,3 @@ export async function getCategoryExpenses() {
 
   return result.sort((a, b) => b.amount - a.amount);
 }
-
