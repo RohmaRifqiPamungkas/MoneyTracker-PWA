@@ -65,6 +65,10 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
   });
 
   const type = watch("type");
+  
+  /* ── PERBAIKAN: Variabel dipindahkan ke dalam lingkup komponen agar fungsi `watch` bekerja ── */
+  const selectedAccountId = watch("bank_account_id");
+  const selectedAccount = bankAccounts.find((a) => a.id === selectedAccountId);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, "");
@@ -284,23 +288,48 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
                     control={control}
                     render={({ field }) => (
                       <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger className="h-10 text-sm">
-                          <SelectValue placeholder="Pilih rekening..." />
+                        <SelectTrigger className="h-10 text-sm flex items-center justify-between">
+                          <div className="flex items-center gap-2 truncate">
+                            {selectedAccount ? (
+                              <>
+                                {selectedAccount.logo?.startsWith("/") ? (
+                                  <div className="bg-white dark:bg-neutral-800 p-0.5 rounded border border-[var(--card-border)]/40 flex items-center justify-center w-6 h-4 shrink-0 shadow-sm">
+                                    <img src={selectedAccount.logo} alt="" className="max-h-full max-w-full object-contain" />
+                                  </div>
+                                ) : (
+                                  <span className="text-sm leading-none shrink-0">{selectedAccount.logo}</span>
+                                )}
+                                <span className="truncate">{selectedAccount.name}</span>
+                              </>
+                            ) : (
+                              <span className="text-[var(--muted-foreground)]">Pilih rekening...</span>
+                            )}
+                          </div>
                         </SelectTrigger>
+
                         <SelectContent>
-                          {bankAccounts.map((account) => (
-                            <SelectItem key={account.id} value={account.id}>
-                              <div className="flex items-center justify-between w-full w-[260px] sm:w-[280px] text-sm">
-                                <span className="flex items-center gap-2 truncate">
-                                  <span className="text-base leading-none shrink-0">{account.logo}</span>
-                                  <span className="truncate">{account.name}</span>
-                                </span>
-                                <span className="text-[var(--muted-foreground)] text-xs font-medium ml-auto pl-2 tabular-nums shrink-0">
-                                  {formatCurrency(account.balance, true)}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
+                          {bankAccounts.map((account) => {
+                            const isImgLogo = account.logo?.startsWith("/");
+                            return (
+                              <SelectItem key={account.id} value={account.id}>
+                                <div className="flex items-center justify-between w-full min-w-[240px] text-sm">
+                                  <span className="flex items-center gap-2 truncate">
+                                    {isImgLogo ? (
+                                      <div className="bg-white p-0.5 rounded border border-neutral-200 dark:border-neutral-800 flex items-center justify-center w-6 h-4 shrink-0">
+                                        <img src={account.logo} alt="" className="max-h-full max-w-full object-contain" />
+                                      </div>
+                                    ) : (
+                                      <span className="text-base leading-none shrink-0">{account.logo}</span>
+                                    )}
+                                    <span className="truncate">{account.name}</span>
+                                  </span>
+                                  <span className="text-[var(--muted-foreground)] text-xs font-medium ml-auto pl-4 tabular-nums shrink-0">
+                                    {formatCurrency(account.balance, true)}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                     )}
