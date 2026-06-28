@@ -54,6 +54,8 @@ function TypeIcon({ type, size = 14 }: { type: BankAccountType; size?: number })
 
 /* ── Single account card ───────────────────────────────── */
 function AccountCard({ account, hidden }: { account: BankAccountRow; hidden: boolean }) {
+  const isImgLogo = account.logo?.startsWith("/");
+
   return (
     <div
       className="relative shrink-0 w-48 sm:w-52 h-[125px] sm:h-[130px] rounded-2xl overflow-hidden cursor-pointer group snap-start"
@@ -75,7 +77,15 @@ function AccountCard({ account, hidden }: { account: BankAccountRow; hidden: boo
             <p className="text-[10px] sm:text-[11px] font-medium text-white/70 leading-none truncate">{account.bank_name}</p>
             <p className="text-xs sm:text-sm font-semibold text-white mt-1 leading-tight truncate">{account.name}</p>
           </div>
-          <span className="text-lg sm:text-xl leading-none shrink-0">{account.logo}</span>
+
+          {/* UBAHAN 1: Render Gambar Logo Bank di Kartu Utama */}
+          {isImgLogo ? (
+            <div className="bg-white/95 p-1 rounded-lg flex items-center justify-center w-9 h-6 shadow-sm shrink-0">
+              <img src={account.logo} alt={account.bank_name} className="max-h-full max-w-full object-contain" />
+            </div>
+          ) : (
+            <span className="text-lg sm:text-xl leading-none shrink-0">{account.logo}</span>
+          )}
         </div>
 
         {/* Bottom row */}
@@ -97,6 +107,7 @@ function AccountCard({ account, hidden }: { account: BankAccountRow; hidden: boo
 }
 
 /* ── Add-account dialog ────────────────────────────────── */
+// (Komponen ini tidak mengalami perubahan logika internal, hanya memanggil PresetButton yang sudah diperbarui)
 function AddAccountDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [rawBalance, setRawBalance] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
@@ -319,19 +330,29 @@ function AddAccountDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   );
 }
 
+/* ── Preset Button ─────────────────────────────────────── */
 function PresetButton({ preset, selected, onSelect }: { preset: BankPreset; selected: boolean; onSelect: () => void }) {
+  const isImgLogo = preset.logo?.startsWith("/");
+
   return (
     <button
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex flex-col items-center justify-center gap-1.5 rounded-xl border p-2 text-center transition-all duration-150 select-none cursor-pointer",
+        "flex flex-col items-center justify-center gap-1.5 rounded-xl border p-2 text-center transition-all duration-150 select-none cursor-pointer min-h-[64px]",
         selected
           ? "border-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold"
           : "border-[var(--card-border)] bg-[var(--muted)]/40 hover:bg-[var(--muted)]/80 text-[var(--muted-foreground)]"
       )}
     >
-      <span className="text-base sm:text-lg leading-none">{preset.logo}</span>
+      {/* UBAHAN 2: Render Gambar Logo Bank di Tombol Form Modal Dialog */}
+      {isImgLogo ? (
+        <div className="h-5 flex items-center justify-center">
+          <img src={preset.logo} alt={preset.name} className="h-full w-auto object-contain max-w-[44px]" />
+        </div>
+      ) : (
+        <span className="text-base sm:text-lg leading-none ">{preset.logo}</span>
+      )}
       <span className="text-[9px] font-semibold leading-tight tracking-tight truncate max-w-full">
         {preset.name}
       </span>
@@ -427,22 +448,34 @@ export function BankAccountsWidget({ accounts }: { accounts: BankAccountRow[] })
             </button>
           </div>
 
-          {/* Account list view (Kini aktif di mobile juga demi fleksibilitas data) */}
+          {/* Account list view */}
           <div className="mt-2 space-y-1 max-h-[220px] overflow-y-auto pr-0.5 custom-scrollbar">
             {accounts.map((account) => {
               const pct = totalBalance > 0 ? Math.round((account.balance / totalBalance) * 100) : 0;
+              const isImgLogo = account.logo?.startsWith("/");
+
               return (
                 <div
                   key={account.id}
                   className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-[var(--muted)]/60 border border-transparent hover:border-[var(--card-border)]/30 transition-all cursor-default group"
                 >
+                  {/* UBAHAN 3: Render Gambar Logo Bank di Tampilan Baris List/Daftar Bawah */}
                   <div
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base border border-[var(--card-border)]/30"
-                    style={{
-                      background: `linear-gradient(135deg, ${account.gradient[0]}15, ${account.gradient[1]}08)`,
-                    }}
+                    className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base border border-[var(--card-border)]/30 overflow-hidden",
+                      isImgLogo ? "bg-slate-50 dark:bg-neutral-900 p-1" : ""
+                    )}
+                    style={
+                      !isImgLogo
+                        ? { background: `linear-gradient(135deg, ${account.gradient[0]}15, ${account.gradient[1]}08)` }
+                        : undefined
+                    }
                   >
-                    {account.logo}
+                    {isImgLogo ? (
+                      <img src={account.logo} alt={account.name} className="max-h-full max-w-full object-contain" />
+                    ) : (
+                      account.logo
+                    )}
                   </div>
 
                   <div className="min-w-0 flex-1">
