@@ -7,12 +7,12 @@
 -- ── Bank Accounts ─────────────────────────────────────────────────────────
 insert into public.bank_accounts (id, name, bank_name, type, account_number, balance, color, logo, gradient)
 values
-  ('bca-1',     'BCA Xpresi',       'Bank Central Asia',  'bank',    '5628', 28750000, '#0066B3', '🏦', array['#0066B3', '#004A82']),
-  ('mandiri-1', 'Mandiri Everyday', 'Bank Mandiri',       'bank',    '9142', 12500000, '#1E3A5F', '🏛️', array['#1E3A5F', '#D4A017']),
-  ('gopay-1',   'GoPay',            'GoPay by GoTo',      'ewallet', null,   1250000,  '#00AA13', '💚', array['#00AA13', '#007D0E']),
-  ('ovo-1',     'OVO',              'OVO',                'ewallet', null,   850000,   '#4B1C8D', '💜', array['#4B1C8D', '#320D60']),
-  ('dana-1',    'DANA',             'DANA Indonesia',     'ewallet', null,   500000,   '#108EE9', '💙', array['#108EE9', '#0E7AC9']),
-  ('cash-1',    'Uang Tunai',       'Tunai',              'cash',    null,   2000000,  '#10b981', '💵', array['#10b981', '#059669'])
+  ('bca-1',     'BCA Xpresi',       'Bank Central Asia',  'bank',    '5628', 28750000, '#0066B3', '/logos/BCA.png',     array['#0066B3', '#004A82']),
+  ('mandiri-1', 'Mandiri Everyday', 'Bank Mandiri',       'bank',    '9142', 12500000, '#1E3A5F', '/logos/Mandiri.png', array['#1E3A5F', '#D4A017']),
+  ('gopay-1',   'GoPay',            'GoPay by GoTo',      'ewallet', null,   1250000,  '#00AA13', '/logos/Gopay.png',   array['#00AA13', '#007D0E']),
+  ('ovo-1',     'OVO',              'OVO',                'ewallet', null,   850000,   '#4B1C8D', '/logos/Ovo.png',     array['#4B1C8D', '#320D60']),
+  ('dana-1',    'DANA',             'DANA Indonesia',     'ewallet', null,   500000,   '#108EE9', '/logos/Dana.png',    array['#108EE9', '#0E7AC9']),
+  ('cash-1',    'Uang Tunai',       'Tunai',              'cash',    null,   2000000,  '#10b981', '💵',                array['#10b981', '#059669'])
 on conflict (id) do nothing;
 
 -- ── Transactions ──────────────────────────────────────────────────────────
