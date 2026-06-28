@@ -24,7 +24,6 @@ interface CustomTooltipProps {
 function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
 
-  // Menemukan nilai income dan expense untuk menghitung selisih secara dinamis
   const income = payload.find(p => p.name === "income")?.value || 0;
   const expense = payload.find(p => p.name === "expense")?.value || 0;
 
@@ -67,11 +66,20 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   );
 }
 
-export function CashflowChart({ data }: { data: MonthlyData[] }) {
+// Menambahkan props 'year' agar teks deskripsi dinamis
+interface CashflowChartProps {
+  data: MonthlyData[];
+  year?: number;
+}
+
+export function CashflowChart({ data, year }: CashflowChartProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Ambil tahun aktif dari props atau gunakan fallback tahun berjalan
+  const displayYear = year || new Date().getFullYear();
 
   return (
     <motion.div
@@ -87,7 +95,7 @@ export function CashflowChart({ data }: { data: MonthlyData[] }) {
                 Arus Kas Bulanan
               </CardTitle>
               <CardDescription className="mt-0.5 text-[11px] sm:text-xs">
-                Perbandingan pemasukan dan pengeluaran Jan – Des 2026
+                Perbandingan pemasukan dan pengeluaran Jan – Des {displayYear}
               </CardDescription>
             </div>
 
@@ -105,14 +113,13 @@ export function CashflowChart({ data }: { data: MonthlyData[] }) {
           </div>
         </CardHeader>
 
-        {/* Padding dikurangi di mobile agar chart melebar maksimal */}
         <CardContent className="px-1 sm:px-6 pt-2 pb-4">
           <div className="h-[240px] sm:h-[280px] w-full mt-4 text-[10px] sm:text-xs select-none">
             {mounted && (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={data}
-                  margin={{ top: 10, right: 15, left: -15, bottom: 5 }} // left minus untuk menarik chart ke tepi kiri layar mobile
+                  margin={{ top: 10, right: 15, left: -15, bottom: 5 }}
                 >
                   <defs>
                     <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
@@ -145,7 +152,7 @@ export function CashflowChart({ data }: { data: MonthlyData[] }) {
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={(v) => v === 0 ? "0" : `${(v / 1_000_000).toFixed(0)}jt`}
-                    dx={5} // Geser teks angka sedikit agar tidak terlalu mepet garis luar
+                    dx={5}
                   />
 
                   <Tooltip
