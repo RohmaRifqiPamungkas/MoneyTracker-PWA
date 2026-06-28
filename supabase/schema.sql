@@ -86,8 +86,17 @@ alter table public.savings_goals   enable row level security;
 alter table public.upcoming_bills  enable row level security;
 
 -- Policy: izinkan semua operasi untuk anon key (single-user mode)
+drop policy if exists "allow_all_bank_accounts" on public.bank_accounts;
 create policy "allow_all_bank_accounts"  on public.bank_accounts  for all using (true) with check (true);
+
+drop policy if exists "allow_all_transactions" on public.transactions;
 create policy "allow_all_transactions"   on public.transactions    for all using (true) with check (true);
+
+drop policy if exists "allow_all_budget_items" on public.budget_items;
 create policy "allow_all_budget_items"   on public.budget_items    for all using (true) with check (true);
+
+drop policy if exists "allow_all_savings_goals" on public.savings_goals;
 create policy "allow_all_savings_goals"  on public.savings_goals   for all using (true) with check (true);
+
+drop policy if exists "allow_all_upcoming_bills" on public.upcoming_bills;
 create policy "allow_all_upcoming_bills" on public.upcoming_bills  for all using (true) with check (true);

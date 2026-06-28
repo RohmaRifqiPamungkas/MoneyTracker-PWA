@@ -238,3 +238,91 @@ export async function getFinancialSummary() {
     expenseGrowth: 0,
   };
 }
+
+// ── Chart Compute ───────────────────────────────────────────────────────────
+
+/**
+ * Hitung data pemasukan & pengeluaran per bulan untuk CashflowChart.
+ */
+export async function getMonthlyData() {
+  const supabase = await createClient();
+  const { data, error } = (await supabase
+    .from("transactions")
+    .select("amount, type, date")
+    .order("date", { ascending: true })) as { data: { amount: number; type: string; date: string }[] | null, error: any };
+
+  if (error || !data) return [];
+
+  // Group by month (MMM format)
+  const monthlyMap = new Map<string, { month: string; income: number; expense: number }>();
+  
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  
+  data.forEach((tx) => {
+    const d = new Date(tx.date);
+    const monthStr = monthNames[d.getMonth()];
+    
+    if (!monthlyMap.has(monthStr)) {
+      monthlyMap.set(monthStr, { month: monthStr, income: 0, expense: 0 });
+    }
+    
+    const entry = monthlyMap.get(monthStr)!;
+    if (tx.type === "income") entry.income += tx.amount;
+    else entry.expense += tx.amount;
+  });
+
+  return Array.from(monthlyMap.values());
+}
+
+/**
+ * Hitung distribusi pengeluaran berdasarkan kategori untuk ExpenseChart.
+ */
+export async function getCategoryExpenses() {
+  const supabase = await createClient();
+  
+  // Ambil transaksi bulan ini saja untuk kategori
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+
+  const { data, error } = (await supabase
+    .from("transactions")
+    .select("amount, category")
+    .eq("type", "expense")
+    .gte("date", start)
+    .lte("date", end)) as { data: { amount: number; category: string }[] | null, error: any };
+
+  if (error || !data) return [];
+
+  const CATEGORY_META: Record<string, { label: string; color: string }> = {
+    food:          { label: "Makanan",      color: "#10b981" },
+    transport:     { label: "Transportasi", color: "#6366f1" },
+    shopping:      { label: "Belanja",      color: "#f59e0b" },
+    bills:         { label: "Tagihan",      color: "#3b82f6" },
+    entertainment: { label: "Hiburan",      color: "#ec4899" },
+    health:        { label: "Kesehatan",    color: "#14b8a6" },
+    other:         { label: "Lainnya",      color: "#94a3b8" },
+  };
+
+  const totalExpense = data.reduce((sum, tx) => sum + tx.amount, 0);
+  if (totalExpense === 0) return [];
+
+  const map = new Map<string, number>();
+  data.forEach(tx => {
+    map.set(tx.category, (map.get(tx.category) || 0) + tx.amount);
+  });
+
+  const result = Array.from(map.entries()).map(([category, amount]) => {
+    const meta = CATEGORY_META[category] || CATEGORY_META.other;
+    return {
+      category: category as any,
+      label: meta.label,
+      amount,
+      percentage: Number(((amount / totalExpense) * 100).toFixed(1)),
+      color: meta.color,
+    };
+  });
+
+  return result.sort((a, b) => b.amount - a.amount);
+}
+
