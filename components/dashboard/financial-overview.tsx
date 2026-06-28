@@ -20,8 +20,6 @@ interface SummaryCardProps {
 
 function SummaryCard({ title, value, growth, subtitle, icon, accentColor, delay = 0 }: SummaryCardProps) {
   const isPositive = growth >= 0;
-
-  // State untuk memastikan text dimuat dengan aman di sisi client
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -34,7 +32,7 @@ function SummaryCard({ title, value, growth, subtitle, icon, accentColor, delay 
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay }}
     >
-      <Card className="relative overflow-hidden group">
+      <Card className="relative overflow-hidden group h-full">
         {/* Subtle accent line on top */}
         <div
           className="absolute top-0 left-0 right-0 h-1 opacity-80"
@@ -49,43 +47,47 @@ function SummaryCard({ title, value, growth, subtitle, icon, accentColor, delay 
           }}
         />
 
-        <CardContent className="p-4 sm:p-5">
-          <div className="flex items-start justify-between mb-4">
-            <div className="space-y-1.5">
-              <p className="text-[13px] font-medium text-[var(--muted-foreground)] tracking-wide">
+        <CardContent className="p-3.5 sm:p-5 flex flex-col justify-between h-full">
+          <div>
+            {/* Header: Judul + Icon */}
+            <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
+              <p className="text-[11px] sm:text-[13px] font-medium text-[var(--muted-foreground)] tracking-wide truncate">
                 {title}
               </p>
-
-              {/* PERUBAHAN UTAMA: Tunda konversi mata uang sampai selesai mounting ke browser */}
-              <h3 className="text-xl sm:text-2xl font-bold text-[var(--foreground)] tabular-nums tracking-tight">
-                {isMounted ? formatCurrency(value) : "Rp0"}
-              </h3>
-
-            </div>
-            <div
-              className="p-2.5 rounded-xl shadow-sm border border-[var(--card-border)] bg-[var(--card)] relative overflow-hidden"
-              style={{ color: accentColor }}
-            >
               <div
-                className="absolute inset-0 opacity-[0.08]"
-                style={{ backgroundColor: accentColor }}
-              />
-              {icon}
+                className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl border border-[var(--card-border)] bg-[var(--card)] relative overflow-hidden shrink-0"
+                style={{ color: accentColor }}
+              >
+                <div
+                  className="absolute inset-0 opacity-[0.08]"
+                  style={{ backgroundColor: accentColor }}
+                />
+                {/* Menyesuaikan ukuran icon di mobile */}
+                <div className="h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center [&>svg]:h-full [&>svg]:w-full">
+                  {icon}
+                </div>
+              </div>
             </div>
+
+            {/* Value / Nominal */}
+            <h3 className="text-base sm:text-2xl font-bold text-[var(--foreground)] tabular-nums tracking-tight break-all sm:break-normal line-clamp-1">
+              {isMounted ? formatCurrency(value) : "Rp0"}
+            </h3>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Footer: Trend Badge & Subtitle */}
+          <div className="flex flex-col xs:flex-row xs:items-center gap-1.5 sm:gap-2 mt-3 pt-2 border-t border-[var(--card-border)]/20 sm:border-none">
             <Badge
               variant="outline"
-              className={`px-1.5 py-0 border-transparent shadow-none font-semibold ${getTrendBg(growth)}`}
+              className={`px-1.5 py-0.5 border-transparent shadow-none font-semibold w-fit shrink-0 ${getTrendBg(growth)}`}
             >
-              <span className="flex items-center gap-0.5 text-xs">
+              <span className="flex items-center gap-0.5 text-[10px] sm:text-xs">
                 {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                 {Math.abs(growth)}%
               </span>
             </Badge>
             {subtitle && (
-              <span className="text-[11px] text-[var(--muted-foreground)]">
+              <span className="text-[10px] sm:text-[11px] text-[var(--muted-foreground)] truncate">
                 {subtitle}
               </span>
             )}
@@ -98,13 +100,14 @@ function SummaryCard({ title, value, growth, subtitle, icon, accentColor, delay 
 
 export function FinancialOverview({ summary }: { summary: FinancialSummary }) {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+    /* Menyesuaikan jarak antar grid di mobile agar tidak memakan ruang berlebih */
+    <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
       <SummaryCard
         title="Total Saldo"
         value={summary.totalBalance}
         growth={summary.balanceGrowth}
         subtitle="vs. bulan lalu"
-        icon={<Wallet className="h-5 w-5" />}
+        icon={<Wallet />}
         accentColor="#10b981"
         delay={0}
       />
@@ -113,27 +116,27 @@ export function FinancialOverview({ summary }: { summary: FinancialSummary }) {
         value={summary.totalIncome}
         growth={summary.incomeGrowth}
         subtitle="bulan ini"
-        icon={<TrendingUp className="h-5 w-5" />}
+        icon={<TrendingUp />}
         accentColor="#6366f1"
-        delay={0.08}
+        delay={0.04}
       />
       <SummaryCard
         title="Pengeluaran"
         value={summary.totalExpenses}
         growth={summary.expenseGrowth}
         subtitle="bulan ini"
-        icon={<TrendingDown className="h-5 w-5" />}
+        icon={<TrendingDown />}
         accentColor="#f43f5e"
-        delay={0.16}
+        delay={0.08}
       />
       <SummaryCard
         title="Total Tabungan"
         value={summary.totalSavings}
         growth={summary.savingsRate}
-        subtitle={`Rasio tabungan ${summary.savingsRate}%`}
-        icon={<PiggyBank className="h-5 w-5" />}
+        subtitle={`Rasio: ${summary.savingsRate}%`}
+        icon={<PiggyBank />}
         accentColor="#f59e0b"
-        delay={0.24}
+        delay={0.12}
       />
     </div>
   );

@@ -9,7 +9,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -25,33 +24,42 @@ interface CustomTooltipProps {
 function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
 
+  // Menemukan nilai income dan expense untuk menghitung selisih secara dinamis
+  const income = payload.find(p => p.name === "income")?.value || 0;
+  const expense = payload.find(p => p.name === "expense")?.value || 0;
+
   return (
-    <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-3 shadow-lg">
-      <p className="mb-2 text-xs font-semibold text-[var(--muted-foreground)]">{label}</p>
-      {payload.map((entry) => (
-        <div key={entry.name} className="flex items-center gap-2 text-sm">
-          <span
-            className="h-2 w-2 rounded-full shrink-0"
-            style={{ backgroundColor: entry.color }}
-          />
-          <span className="text-[var(--muted-foreground)] capitalize">
-            {entry.name === "income" ? "Pemasukan" : "Pengeluaran"}:
-          </span>
-          <span className="font-semibold text-[var(--foreground)]">
-            {formatCurrency(entry.value, true)}
-          </span>
-        </div>
-      ))}
+    <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card)]/95 backdrop-blur-md p-3 shadow-xl max-w-[240px] sm:max-w-none">
+      <p className="mb-1.5 text-xs font-semibold text-[var(--muted-foreground)]">{label}</p>
+      <div className="space-y-1">
+        {payload.map((entry) => (
+          <div key={entry.name} className="flex items-center justify-between gap-4 text-xs sm:text-sm">
+            <div className="flex items-center gap-2">
+              <span
+                className="h-2 w-2 rounded-full shrink-0"
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-[var(--muted-foreground)] capitalize">
+                {entry.name === "income" ? "Pemasukan" : "Pengeluaran"}
+              </span>
+            </div>
+            <span className="font-semibold text-[var(--foreground)] tabular-nums">
+              {formatCurrency(entry.value, true)}
+            </span>
+          </div>
+        ))}
+      </div>
+
       {payload.length === 2 && (
-        <div className="mt-2 border-t border-[var(--card-border)] pt-2 flex items-center gap-2 text-sm">
-          <span className="text-[var(--muted-foreground)]">Selisih:</span>
+        <div className="mt-2 border-t border-[var(--card-border)] pt-2 flex items-center justify-between text-xs sm:text-sm">
+          <span className="text-[var(--muted-foreground)]">Selisih</span>
           <span
-            className="font-semibold"
+            className="font-semibold tabular-nums"
             style={{
-              color: payload[0].value >= payload[1].value ? "#10b981" : "#f43f5e",
+              color: income >= expense ? "#10b981" : "#f43f5e",
             }}
           >
-            {formatCurrency(Math.abs(payload[0].value - payload[1].value), true)}
+            {income >= expense ? "+" : "-"}{formatCurrency(Math.abs(income - expense), true)}
           </span>
         </div>
       )}
@@ -71,91 +79,103 @@ export function CashflowChart({ data }: { data: MonthlyData[] }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.2 }}
     >
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <Card className="overflow-hidden">
+        <CardHeader className="p-4 sm:p-6 pb-0 sm:pb-0">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="text-base">Arus Kas Bulanan</CardTitle>
-              <CardDescription className="mt-0.5 text-xs">
+              <CardTitle className="text-sm sm:text-base font-semibold text-[var(--foreground)]">
+                Arus Kas Bulanan
+              </CardTitle>
+              <CardDescription className="mt-0.5 text-[11px] sm:text-xs">
                 Perbandingan pemasukan dan pengeluaran Jan – Des 2026
               </CardDescription>
             </div>
-            <div className="flex items-center gap-3 text-xs">
+
+            {/* Custom Legend Layout */}
+            <div className="flex items-center gap-4 text-[11px] sm:text-xs font-medium">
               <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
                 <span className="text-[var(--muted-foreground)]">Pemasukan</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-rose-400" />
+                <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
                 <span className="text-[var(--muted-foreground)]">Pengeluaran</span>
               </div>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-4 pb-2">
-          <div className="h-[250px] w-full mt-4">
+
+        {/* Padding dikurangi di mobile agar chart melebar maksimal */}
+        <CardContent className="px-1 sm:px-6 pt-2 pb-4">
+          <div className="h-[240px] sm:h-[280px] w-full mt-4 text-[10px] sm:text-xs select-none">
             {mounted && (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={data}
-                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                  margin={{ top: 10, right: 15, left: -15, bottom: 5 }} // left minus untuk menarik chart ke tepi kiri layar mobile
                 >
-                <defs>
-                  <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
-                  </linearGradient>
-                  <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="var(--card-border)"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-                  axisLine={false}
-                  tickLine={false}
-                  dy={8}
-                />
-                <YAxis
-                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => `${(v / 1_000_000).toFixed(0)}jt`}
-                />
-                <Tooltip
-                  content={<CustomTooltip />}
-                  cursor={{ stroke: "var(--card-border)", strokeWidth: 1, strokeDasharray: "4 2" }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="income"
-                  stroke="#10b981"
-                  strokeWidth={2.5}
-                  fill="url(#incomeGradient)"
-                  dot={false}
-                  activeDot={{ r: 5, fill: "#10b981", strokeWidth: 2, stroke: "var(--card)" }}
-                  animationDuration={1200}
-                  animationEasing="ease-out"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="expense"
-                  stroke="#f43f5e"
-                  strokeWidth={2.5}
-                  fill="url(#expenseGradient)"
-                  dot={false}
-                  activeDot={{ r: 5, fill: "#f43f5e", strokeWidth: 2, stroke: "var(--card)" }}
-                  animationDuration={1200}
-                  animationEasing="ease-out"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+                  <defs>
+                    <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.01} />
+                    </linearGradient>
+                    <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.01} />
+                    </linearGradient>
+                  </defs>
+
+                  <CartesianGrid
+                    strokeDasharray="4"
+                    stroke="var(--card-border)"
+                    vertical={false}
+                    opacity={0.5}
+                  />
+
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    dy={6}
+                  />
+
+                  <YAxis
+                    tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => v === 0 ? "0" : `${(v / 1_000_000).toFixed(0)}jt`}
+                    dx={5} // Geser teks angka sedikit agar tidak terlalu mepet garis luar
+                  />
+
+                  <Tooltip
+                    content={<CustomTooltip />}
+                    cursor={{ stroke: "var(--card-border)", strokeWidth: 1.5, strokeDasharray: "4 4" }}
+                  />
+
+                  <Area
+                    type="monotone"
+                    dataKey="income"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    fill="url(#incomeGradient)"
+                    dot={false}
+                    activeDot={{ r: 4.5, fill: "#10b981", strokeWidth: 1.5, stroke: "var(--card)" }}
+                    animationDuration={800}
+                  />
+
+                  <Area
+                    type="monotone"
+                    dataKey="expense"
+                    stroke="#f43f5e"
+                    strokeWidth={2}
+                    fill="url(#expenseGradient)"
+                    dot={false}
+                    activeDot={{ r: 4.5, fill: "#f43f5e", strokeWidth: 1.5, stroke: "var(--card)" }}
+                    animationDuration={800}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             )}
           </div>
         </CardContent>

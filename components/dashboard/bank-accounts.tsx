@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,6 +14,8 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -30,7 +32,6 @@ import { Badge } from "@/components/ui/badge";
 import { BANK_PRESETS } from "@/lib/mock-data";
 import { formatCurrency, cn } from "@/lib/utils";
 import { addBankAccount } from "@/app/actions";
-import { AlertCircle, Loader2 } from "lucide-react";
 import type { BankAccountType, BankPreset } from "@/lib/types";
 import type { BankAccountRow } from "@/lib/supabase/types";
 
@@ -46,16 +47,16 @@ type AddFormValues = z.infer<typeof addSchema>;
 /* ── Type icon helper ──────────────────────────────────── */
 function TypeIcon({ type, size = 14 }: { type: BankAccountType; size?: number }) {
   const cls = `shrink-0`;
-  if (type === "bank")    return <Landmark   className={cls} style={{ width: size, height: size }} />;
-  if (type === "ewallet") return <Wallet2    className={cls} style={{ width: size, height: size }} />;
-  return                         <Banknote   className={cls} style={{ width: size, height: size }} />;
+  if (type === "bank") return <Landmark className={cls} style={{ width: size, height: size }} />;
+  if (type === "ewallet") return <Wallet2 className={cls} style={{ width: size, height: size }} />;
+  return <Banknote className={cls} style={{ width: size, height: size }} />;
 }
 
 /* ── Single account card ───────────────────────────────── */
 function AccountCard({ account, hidden }: { account: BankAccountRow; hidden: boolean }) {
   return (
     <div
-      className="relative shrink-0 w-52 h-[130px] rounded-2xl overflow-hidden cursor-pointer group"
+      className="relative shrink-0 w-48 sm:w-52 h-[125px] sm:h-[130px] rounded-2xl overflow-hidden cursor-pointer group snap-start"
       style={{
         background: `linear-gradient(135deg, ${account.gradient[0]}, ${account.gradient[1]})`,
       }}
@@ -64,35 +65,29 @@ function AccountCard({ account, hidden }: { account: BankAccountRow; hidden: boo
       <div className="absolute inset-0 bg-gradient-to-br from-white/15 to-transparent pointer-events-none" />
 
       {/* Circle watermark */}
-      <div
-        className="absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-20"
-        style={{ backgroundColor: "white" }}
-      />
-      <div
-        className="absolute -right-2 top-8 h-16 w-16 rounded-full opacity-10"
-        style={{ backgroundColor: "white" }}
-      />
+      <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-20 bg-white" />
+      <div className="absolute -right-2 top-8 h-16 w-16 rounded-full opacity-10 bg-white" />
 
-      <div className="relative h-full p-4 flex flex-col justify-between">
+      <div className="relative h-full p-3.5 sm:p-4 flex flex-col justify-between">
         {/* Top row */}
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-[11px] font-medium text-white/70 leading-none">{account.bank_name}</p>
-            <p className="text-sm font-semibold text-white mt-0.5 leading-tight">{account.name}</p>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] sm:text-[11px] font-medium text-white/70 leading-none truncate">{account.bank_name}</p>
+            <p className="text-xs sm:text-sm font-semibold text-white mt-1 leading-tight truncate">{account.name}</p>
           </div>
-          <span className="text-xl leading-none">{account.logo}</span>
+          <span className="text-lg sm:text-xl leading-none shrink-0">{account.logo}</span>
         </div>
 
         {/* Bottom row */}
         <div>
-          <p className="text-[10px] text-white/60 mb-1 flex items-center gap-1">
+          <p className="text-[9px] sm:text-[10px] text-white/60 mb-0.5 flex items-center gap-1">
             <TypeIcon type={account.type as BankAccountType} size={10} />
-            {account.type}
+            <span className="capitalize">{account.type}</span>
             {account.account_number && (
-              <span className="ml-1">•••• {account.account_number}</span>
+              <span className="opacity-80">·· {account.account_number}</span>
             )}
           </p>
-          <p className="text-base font-bold text-white tracking-tight">
+          <p className="text-sm sm:text-base font-bold text-white tracking-tight tabular-nums">
             {hidden ? "Rp ••••••" : formatCurrency(account.balance, true)}
           </p>
         </div>
@@ -102,18 +97,11 @@ function AccountCard({ account, hidden }: { account: BankAccountRow; hidden: boo
 }
 
 /* ── Add-account dialog ────────────────────────────────── */
-function AddAccountDialog({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-}) {
+function AddAccountDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const [rawBalance, setRawBalance] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [selectedPreset, setSelectedPreset] = useState<string>("");
 
   const {
     register,
@@ -124,7 +112,7 @@ function AddAccountDialog({
     formState: { errors },
   } = useForm<AddFormValues>({
     resolver: zodResolver(addSchema),
-    defaultValues: { initialBalance: 0 },
+    defaultValues: { initialBalance: 0, presetId: "" },
   });
 
   const handleBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,7 +125,6 @@ function AddAccountDialog({
     setIsLoading(true);
     setErrorMsg("");
 
-    // Cari preset yang dipilih untuk ambil metadata
     const preset = BANK_PRESETS.find((p) => p.id === data.presetId);
     if (!preset) {
       setErrorMsg("Preset rekening tidak ditemukan");
@@ -167,9 +154,8 @@ function AddAccountDialog({
       setIsSuccess(true);
       setTimeout(() => {
         setIsSuccess(false);
-        reset({ initialBalance: 0 });
+        reset({ initialBalance: 0, presetId: "" });
         setRawBalance("");
-        setSelectedPreset("");
         onOpenChange(false);
       }, 1800);
     } catch {
@@ -180,9 +166,8 @@ function AddAccountDialog({
 
   const handleClose = (v: boolean) => {
     if (!v) {
-      reset({ initialBalance: 0 });
+      reset({ initialBalance: 0, presetId: "" });
       setRawBalance("");
-      setSelectedPreset("");
       setIsSuccess(false);
     }
     onOpenChange(v);
@@ -194,112 +179,83 @@ function AddAccountDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent showHandle>
-        <DialogHeader className="pt-5 pb-3">
+      <DialogContent showHandle className="max-w-lg p-0 overflow-hidden rounded-t-3xl sm:rounded-2xl">
+        <DialogHeader className="p-5 pb-3 border-b border-[var(--card-border)]/40">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10">
-              <Landmark className="h-5 w-5 text-blue-500" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
+              <Landmark className="h-4 w-4" />
             </div>
             <div>
-              <DialogTitle>Tambah Rekening</DialogTitle>
-              <DialogDescription className="text-xs mt-0.5">
-                Tambahkan bank atau e-wallet kamu
+              <DialogTitle className="text-sm sm:text-base font-semibold">Tambah Rekening</DialogTitle>
+              <DialogDescription className="text-[11px] sm:text-xs mt-0.5">
+                Tambahkan bank atau e-wallet kamu secara instan
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="px-6 pb-6 overflow-y-auto scrollbar-thin">
+        <div className="px-5 py-4 overflow-y-auto max-h-[72vh] sm:max-h-[600px] space-y-4 custom-scrollbar">
           <AnimatePresence mode="wait">
             {isSuccess ? (
               <motion.div
                 key="ok"
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center justify-center py-10 gap-3"
+                className="flex flex-col items-center justify-center py-12 gap-3"
               >
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
-                  <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10">
+                  <CheckCircle2 className="h-7 w-7 text-emerald-500" />
                 </div>
-                <p className="font-semibold text-[var(--foreground)]">Rekening Ditambahkan!</p>
-                <p className="text-sm text-[var(--muted-foreground)]">Rekening baru berhasil disimpan.</p>
+                <div className="text-center">
+                  <p className="font-semibold text-base text-[var(--foreground)]">Rekening Ditambahkan!</p>
+                  <p className="text-xs text-[var(--muted-foreground)] mt-0.5">Rekening baru berhasil disimpan ke sistem.</p>
+                </div>
               </motion.div>
             ) : (
               <motion.form
                 key="form"
                 onSubmit={handleSubmit(onSubmit)}
-                className="space-y-5"
+                className="space-y-4"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
               >
-                {/* Error banner */}
                 {errorMsg && (
-                  <div className="flex items-center gap-2 rounded-lg bg-rose-500/10 border border-rose-500/20 px-3 py-2 text-sm text-rose-600">
+                  <div className="flex items-center gap-2 rounded-xl bg-rose-500/10 border border-rose-500/20 px-3 py-2.5 text-xs text-rose-600">
                     <AlertCircle className="h-4 w-4 shrink-0" />
                     {errorMsg}
                   </div>
                 )}
 
-                {/* Preset grid */}
+                {/* Preset Picker */}
                 <Controller
                   name="presetId"
                   control={control}
                   render={({ field }) => (
-                    <div className="space-y-3">
+                    <div className="space-y-3 bg-[var(--muted)]/20 border border-[var(--card-border)]/40 p-3 rounded-2xl">
                       {/* Banks */}
                       <div>
-                        <p className="text-xs uppercase tracking-wider text-[var(--muted-foreground)] mb-2">
-                          🏦 Bank
-                        </p>
-                        <div className="grid grid-cols-4 gap-2">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1.5">🏦 Bank</p>
+                        <div className="grid grid-cols-3 xs:grid-cols-4 gap-2">
                           {bankPresets.map((p) => (
-                            <PresetButton
-                              key={p.id}
-                              preset={p}
-                              selected={field.value === p.id}
-                              onSelect={() => {
-                                field.onChange(p.id);
-                                setSelectedPreset(p.id);
-                              }}
-                            />
+                            <PresetButton key={p.id} preset={p} selected={field.value === p.id} onSelect={() => field.onChange(p.id)} />
                           ))}
                         </div>
                       </div>
                       {/* E-wallets */}
                       <div>
-                        <p className="text-xs uppercase tracking-wider text-[var(--muted-foreground)] mb-2">
-                          💳 E-Wallet
-                        </p>
-                        <div className="grid grid-cols-4 gap-2">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1.5">💳 E-Wallet</p>
+                        <div className="grid grid-cols-3 xs:grid-cols-4 gap-2">
                           {ewalletPresets.map((p) => (
-                            <PresetButton
-                              key={p.id}
-                              preset={p}
-                              selected={field.value === p.id}
-                              onSelect={() => {
-                                field.onChange(p.id);
-                                setSelectedPreset(p.id);
-                              }}
-                            />
+                            <PresetButton key={p.id} preset={p} selected={field.value === p.id} onSelect={() => field.onChange(p.id)} />
                           ))}
                         </div>
                       </div>
                       {/* Cash */}
                       <div>
-                        <p className="text-xs uppercase tracking-wider text-[var(--muted-foreground)] mb-2">
-                          💵 Lainnya
-                        </p>
-                        <div className="grid grid-cols-4 gap-2">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)] mb-1.5">💵 Lainnya</p>
+                        <div className="grid grid-cols-3 xs:grid-cols-4 gap-2">
                           {cashPresets.map((p) => (
-                            <PresetButton
-                              key={p.id}
-                              preset={p}
-                              selected={field.value === p.id}
-                              onSelect={() => {
-                                field.onChange(p.id);
-                                setSelectedPreset(p.id);
-                              }}
-                            />
+                            <PresetButton key={p.id} preset={p} selected={field.value === p.id} onSelect={() => field.onChange(p.id)} />
                           ))}
                         </div>
                       </div>
@@ -307,65 +263,47 @@ function AddAccountDialog({
                   )}
                 />
                 {errors.presetId && (
-                  <p className="text-xs text-rose-500 -mt-3">{errors.presetId.message}</p>
+                  <p className="text-[11px] text-rose-500 font-medium -mt-2">{errors.presetId.message}</p>
                 )}
 
                 {/* Nickname */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="acc-nick" className="text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
-                    Nama Rekening
-                  </Label>
-                  <Input
-                    id="acc-nick"
-                    placeholder="Mis. BCA Tabungan, GoPay Utama…"
-                    className="h-11 rounded-xl"
-                    {...register("nickname")}
-                  />
+                  <Label htmlFor="acc-nick" className="text-xs font-medium text-[var(--muted-foreground)]">Nama Panggilan Rekening</Label>
+                  <Input id="acc-nick" placeholder="Mis. BCA Tabungan, GoPay Utama…" className="h-10 text-sm rounded-xl" {...register("nickname")} />
                   {errors.nickname && (
-                    <p className="text-xs text-rose-500">{errors.nickname.message}</p>
+                    <p className="text-[11px] text-rose-500 font-medium">{errors.nickname.message}</p>
                   )}
                 </div>
 
-                {/* Account number (optional, bank only) */}
-                <div className="grid grid-cols-2 gap-3">
+                {/* Responsive Input Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="acc-num" className="text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
-                      No. Rekening <span className="normal-case font-normal">(opsional)</span>
+                    <Label htmlFor="acc-num" className="text-xs font-medium text-[var(--muted-foreground)]">
+                      No. Rekening <span className="text-[var(--muted-foreground)]/60 font-normal">(opsional)</span>
                     </Label>
-                    <Input
-                      id="acc-num"
-                      placeholder="4 digit terakhir"
-                      maxLength={20}
-                      className="h-11 rounded-xl"
-                      {...register("accountNumber")}
-                    />
+                    <Input id="acc-num" placeholder="4 digit terakhir" maxLength={25} className="h-10 text-sm rounded-xl" {...register("accountNumber")} />
                   </div>
 
-                  {/* Initial balance */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="acc-bal" className="text-xs uppercase tracking-wider text-[var(--muted-foreground)]">
-                      Saldo Awal
-                    </Label>
+                    <Label htmlFor="acc-bal" className="text-xs font-medium text-[var(--muted-foreground)]">Saldo Awal</Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-[var(--muted-foreground)]">
-                        Rp
-                      </span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-[var(--muted-foreground)]">Rp</span>
                       <Input
                         id="acc-bal"
                         inputMode="numeric"
                         placeholder="0"
                         value={rawBalance ? Number(rawBalance).toLocaleString("id-ID") : ""}
                         onChange={handleBalanceChange}
-                        className="h-11 pl-9 text-right font-semibold rounded-xl"
+                        className="h-10 pl-9 text-right font-bold text-sm rounded-xl tabular-nums"
                       />
                     </div>
                     {errors.initialBalance && (
-                      <p className="text-xs text-rose-500">{errors.initialBalance.message}</p>
+                      <p className="text-[11px] text-rose-500 font-medium">{errors.initialBalance.message}</p>
                     )}
                   </div>
                 </div>
 
-                <Button type="submit" size="lg" className="w-full rounded-xl" disabled={isLoading}>
+                <Button type="submit" size="lg" className="w-full h-11 text-sm font-semibold rounded-xl cursor-pointer mt-2 text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500" disabled={isLoading}>
                   {isLoading ? (
                     <><Loader2 className="h-4 w-4 animate-spin" /> Menyimpan...</>
                   ) : (
@@ -381,33 +319,20 @@ function AddAccountDialog({
   );
 }
 
-function PresetButton({
-  preset,
-  selected,
-  onSelect,
-}: {
-  preset: BankPreset;
-  selected: boolean;
-  onSelect: () => void;
-}) {
+function PresetButton({ preset, selected, onSelect }: { preset: BankPreset; selected: boolean; onSelect: () => void }) {
   return (
     <button
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex flex-col items-center gap-1.5 rounded-xl border-2 p-2 text-center transition-all duration-150",
+        "flex flex-col items-center justify-center gap-1.5 rounded-xl border p-2 text-center transition-all duration-150 select-none cursor-pointer",
         selected
-          ? "border-emerald-500 bg-emerald-500/8"
-          : "border-[var(--card-border)] hover:border-[var(--muted-foreground)]/40 bg-[var(--muted)]/40"
+          ? "border-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold"
+          : "border-[var(--card-border)] bg-[var(--muted)]/40 hover:bg-[var(--muted)]/80 text-[var(--muted-foreground)]"
       )}
     >
-      <span className="text-lg leading-none">{preset.logo}</span>
-      <span
-        className={cn(
-          "text-[9px] font-semibold leading-tight",
-          selected ? "text-emerald-600" : "text-[var(--muted-foreground)]"
-        )}
-      >
+      <span className="text-base sm:text-lg leading-none">{preset.logo}</span>
+      <span className="text-[9px] font-semibold leading-tight tracking-tight truncate max-w-full">
         {preset.name}
       </span>
     </button>
@@ -419,10 +344,10 @@ export function BankAccountsWidget({ accounts }: { accounts: BankAccountRow[] })
   const [addOpen, setAddOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  
+
   const displayedAccounts = showAll ? accounts : accounts.slice(0, 3);
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0);
-  const bankCount    = accounts.filter((a) => a.type === "bank").length;
+  const bankCount = accounts.filter((a) => a.type === "bank").length;
   const ewalletCount = accounts.filter((a) => a.type === "ewallet").length;
 
   return (
@@ -431,124 +356,118 @@ export function BankAccountsWidget({ accounts }: { accounts: BankAccountRow[] })
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.05 }}
     >
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+      <Card className="shadow-sm border-[var(--card-border)]">
+        <CardHeader className="p-4 sm:p-6 pb-3">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
                 <Landmark className="h-4 w-4 text-blue-500" />
                 Rekening & Dompet
               </CardTitle>
-              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                {bankCount} bank · {ewalletCount} e-wallet · {accounts.filter(a => a.type === "cash").length} tunai
+              <p className="text-[11px] sm:text-xs text-[var(--muted-foreground)] mt-0.5">
+                {bankCount} bank &bull; {ewalletCount} e-wallet &bull; {accounts.filter(a => a.type === "cash").length} tunai
               </p>
             </div>
             <button
               onClick={() => setHidden((h) => !h)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-[var(--muted-foreground)] bg-[var(--muted)]/50 hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors cursor-pointer"
               aria-label={hidden ? "Tampilkan saldo" : "Sembunyikan saldo"}
             >
               {hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
             </button>
           </div>
 
-          {/* Total balance */}
-          <div className="mt-3 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 p-4">
-            <p className="text-xs font-medium text-emerald-100/80">Total Semua Rekening</p>
-            <p className="text-2xl font-bold text-white mt-0.5">
+          {/* Total balance card */}
+          <div className="mt-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 shadow-sm relative overflow-hidden text-white">
+            <div className="absolute -right-6 -bottom-6 h-20 w-20 rounded-full bg-white/5" />
+            <p className="text-[11px] font-medium text-emerald-100/90 tracking-wide uppercase">Total Semua Rekening</p>
+            <p className="text-xl sm:text-2xl font-bold mt-1 tracking-tight tabular-nums">
               {hidden ? "Rp ••••••••" : formatCurrency(totalBalance)}
             </p>
-            <div className="mt-2 flex gap-3 text-xs text-emerald-100/70">
+            <div className="mt-2.5 flex items-center gap-2 text-[10px] text-emerald-100/70 font-medium">
               <span>{bankCount} Bank</span>
-              <span>·</span>
+              <span className="opacity-40">&bull;</span>
               <span>{ewalletCount} E-Wallet</span>
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="pt-0">
+        <CardContent className="p-4 sm:p-6 pt-0">
           {/* Horizontal scroll carousel */}
-          <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-thin snap-x snap-mandatory">
+          <div className="flex gap-3 overflow-x-auto pb-4 px-1 -mx-1 scrollbar-none snap-x snap-mandatory">
             {displayedAccounts.map((account, i) => (
               <motion.div
                 key={account.id}
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.06, duration: 0.3 }}
+                transition={{ delay: i * 0.04, duration: 0.25 }}
                 className="snap-start"
               >
                 <AccountCard account={account} hidden={hidden} />
               </motion.div>
             ))}
 
-            {/* Add account card */}
             {accounts.length > 3 && (
               <button
                 onClick={() => setShowAll(!showAll)}
-                className="snap-start shrink-0 w-32 h-[130px] rounded-2xl border-2 border-dashed border-[var(--card-border)] flex flex-col items-center justify-center gap-2 text-[var(--muted-foreground)] hover:border-emerald-500/50 hover:text-emerald-500 hover:bg-emerald-500/5 transition-all duration-200"
+                className="snap-start shrink-0 w-28 h-[125px] sm:h-[130px] rounded-2xl border border-dashed border-[var(--card-border)] bg-[var(--muted)]/10 flex flex-col items-center justify-center gap-1 text-[var(--muted-foreground)] hover:border-emerald-500/40 hover:text-emerald-500 hover:bg-emerald-500/5 transition-all duration-200 cursor-pointer"
               >
-                <span className="text-xs font-medium text-center px-2">{showAll ? "Tutup" : "Lihat Semua"}</span>
+                <span className="text-xs font-semibold px-2">{showAll ? "Tutup" : "Lihat Semua"}</span>
               </button>
             )}
 
             <button
               onClick={() => setAddOpen(true)}
-              className="snap-start shrink-0 w-32 h-[130px] rounded-2xl border-2 border-dashed border-[var(--card-border)] flex flex-col items-center justify-center gap-2 text-[var(--muted-foreground)] hover:border-emerald-500/50 hover:text-emerald-500 hover:bg-emerald-500/5 transition-all duration-200"
+              className="snap-start shrink-0 w-28 h-[125px] sm:h-[130px] rounded-2xl border border-dashed border-[var(--card-border)] bg-[var(--muted)]/10 flex flex-col items-center justify-center gap-2 text-[var(--muted-foreground)] hover:border-emerald-500/40 hover:text-emerald-500 hover:bg-emerald-500/5 transition-all duration-200 cursor-pointer"
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--muted)]">
-                <Plus className="h-5 w-5" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--muted)] shadow-sm">
+                <Plus className="h-4 w-4" />
               </div>
-              <span className="text-xs font-medium text-center px-2 leading-tight">Tambah Rekening</span>
+              <span className="text-[11px] font-semibold text-center px-2 leading-tight">Tambah Baru</span>
             </button>
           </div>
 
-          {/* Account list */}
-          <div className="hidden md:block mt-4 space-y-1">
+          {/* Account list view (Kini aktif di mobile juga demi fleksibilitas data) */}
+          <div className="mt-2 space-y-1 max-h-[220px] overflow-y-auto pr-0.5 custom-scrollbar">
             {accounts.map((account) => {
-              const pct = Math.round((account.balance / totalBalance) * 100);
+              const pct = totalBalance > 0 ? Math.round((account.balance / totalBalance) * 100) : 0;
               return (
                 <div
                   key={account.id}
-                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-[var(--muted)] transition-colors cursor-default group"
+                  className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-[var(--muted)]/60 border border-transparent hover:border-[var(--card-border)]/30 transition-all cursor-default group"
                 >
-                  {/* Logo bubble */}
                   <div
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base border border-[var(--card-border)]/30"
                     style={{
-                      background: `linear-gradient(135deg, ${account.gradient[0]}22, ${account.gradient[1]}11)`,
+                      background: `linear-gradient(135deg, ${account.gradient[0]}15, ${account.gradient[1]}08)`,
                     }}
                   >
                     {account.logo}
                   </div>
 
-                  {/* Name + number */}
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[var(--foreground)] truncate">{account.name}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <Badge
-                        variant="secondary"
-                        className="text-[10px] px-1.5 py-0 h-4 gap-1"
-                      >
-                        <TypeIcon type={account.type as BankAccountType} size={9} />
+                    <p className="text-xs sm:text-sm font-semibold text-[var(--foreground)] truncate">{account.name}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-[var(--muted-foreground)]">
+                      <Badge variant="secondary" className="text-[9px] px-1 py-0 h-3.5 gap-0.5 font-medium border-none shadow-none bg-[var(--muted)] text-[var(--muted-foreground)]">
+                        <TypeIcon type={account.type as BankAccountType} size={8} />
                         <span className="capitalize">{account.type}</span>
                       </Badge>
                       {account.account_number && (
-                        <span className="text-[10px] text-[var(--muted-foreground)]">
-                          •••• {account.account_number}
+                        <span className="truncate max-w-[70px] sm:max-w-none">
+                          &bull; {account.account_number}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Balance + share */}
-                  <div className="flex flex-col items-end shrink-0">
-                    <p className="text-sm font-semibold text-[var(--foreground)]">
+                  <div className="flex flex-col items-end shrink-0 text-right">
+                    <p className="text-xs sm:text-sm font-bold text-[var(--foreground)] tabular-nums">
                       {hidden ? "••••" : formatCurrency(account.balance, true)}
                     </p>
-                    <p className="text-[10px] text-[var(--muted-foreground)]">{pct}% total</p>
+                    <p className="text-[9px] font-medium text-[var(--muted-foreground)] mt-0.5">{pct}% porsi</p>
                   </div>
 
-                  <ChevronRight className="h-3.5 w-3.5 text-[var(--muted-foreground)] opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ChevronRight className="h-3.5 w-3.5 text-[var(--muted-foreground)] opacity-0 md:group-hover:opacity-100 transition-opacity ml-1 hidden sm:block" />
                 </div>
               );
             })}

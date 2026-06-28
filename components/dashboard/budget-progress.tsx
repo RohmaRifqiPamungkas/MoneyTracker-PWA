@@ -16,9 +16,9 @@ export function BudgetProgress({ budgetItems }: { budgetItems: BudgetItemRow[] }
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.4, delay: 0.15 }}
     >
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
+      <Card className="shadow-sm border-[var(--card-border)]">
+        <CardHeader className="p-4 sm:p-6 pb-3">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold">
             <Target className="h-4 w-4 text-emerald-500" />
             Budget Bulanan
           </CardTitle>
@@ -26,19 +26,19 @@ export function BudgetProgress({ budgetItems }: { budgetItems: BudgetItemRow[] }
         </CardHeader>
 
         <CardContent className="pt-0 pb-4">
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
             {budgetItems.map((item, i) => {
-              const pct       = Math.min(Math.round((item.spent / item.limit) * 100), 999);
-              const isOver    = pct >= 100;
+              const pct = Math.min(Math.round((item.spent / item.limit) * 100), 999);
+              const isOver = pct >= 100;
               const isWarning = pct >= 80 && pct < 100;
-              const meta      = CATEGORY_META[item.category as Category] || { emoji: "📝", label: item.category };
+              const meta = CATEGORY_META[item.category as Category] || { emoji: "📝", label: item.category };
 
               const barColor = isOver ? "#f43f5e" : isWarning ? "#f59e0b" : "var(--primary)";
               const pctColor = isOver
                 ? "text-rose-500"
                 : isWarning
-                ? "text-amber-500"
-                : "text-[var(--foreground)]";
+                  ? "text-amber-500"
+                  : "text-[var(--foreground)]";
 
               return (
                 <motion.div
