@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { CATEGORY_META } from "@/lib/mock-data";
 
 // ── Transaction Actions ──────────────────────────────────────────────────────
 
@@ -186,5 +187,68 @@ export async function removeTransaction(id: string) {
   }
 
   revalidatePath("/dashboard");
+  return { success: true };
+}
+
+// ── Budget Actions ──────────────────────────────────────────────────────────
+
+export async function upsertBudgetItem(category: string, limit: number) {
+  const supabase = await createClient();
+
+  // Cari label dan color dari CATEGORY_META
+  const meta = CATEGORY_META[category as any] || { label: category, color: "#94a3b8" };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing } = await (supabase as any)
+    .from("budget_items")
+    .select("id")
+    .eq("category", category)
+    .maybeSingle();
+
+  let error;
+  if (existing) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: err } = await (supabase as any)
+      .from("budget_items")
+      .update({ limit })
+      .eq("id", existing.id);
+    error = err;
+  } else {
+    // Hitung spent aktual dari transaksi bulan ini
+    const now   = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: txs } = await (supabase as any)
+      .from("transactions")
+      .select("amount")
+      .eq("type", "expense")
+      .eq("category", category)
+      .gte("date", start)
+      .lte("date", end);
+      
+    const actualSpent = (txs ?? []).reduce((sum: number, tx: any) => sum + tx.amount, 0);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: err } = await (supabase as any)
+      .from("budget_items")
+      .insert({
+        id: crypto.randomUUID(),
+        category,
+        label: meta.label,
+        limit,
+        spent: actualSpent,
+        color: meta.color,
+      });
+    error = err;
+  }
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/budget");
   return { success: true };
 }
