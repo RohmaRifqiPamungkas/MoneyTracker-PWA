@@ -247,54 +247,53 @@ export function BudgetClient({ initialBudgets, currentMonth: initialMonth, curre
               </Select>
             </div>
           </div>
+
+          {/* Summary Box  */}
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-3 bg-[var(--card)] border border-[var(--card-border)]/50 p-1.5 sm:p-3.5 rounded-2xl shadow-sm/5 relative overflow-hidden">
+            {/* Limit */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 py-2 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150 min-w-0">
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
+                <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </div>
+              <div className="text-center sm:text-left min-w-0 w-full sm:w-auto">
+                <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Limit</p>
+                <p className="text-[11px] sm:text-base font-bold text-blue-500 mt-1 sm:mt-1.5 tabular-nums truncate">
+                  {formatCurrency(totals.totalLimit, true)}
+                </p>
+              </div>
+            </div>
+
+            {/* Terpakai */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 py-2 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150 min-w-0">
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-rose-500/10 text-rose-500 shrink-0">
+                <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </div>
+              <div className="text-center sm:text-left min-w-0 w-full sm:w-auto">
+                <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Terpakai</p>
+                <p className="text-[11px] sm:text-base font-bold text-rose-500 mt-1 sm:mt-1.5 tabular-nums truncate">
+                  {formatCurrency(totals.totalSpent, true)}
+                </p>
+              </div>
+            </div>
+
+            {/* Sisa */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 py-2 px-1 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150 min-w-0">
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 shrink-0">
+                <ArrowUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </div>
+              <div className="text-center sm:text-left min-w-0 w-full sm:w-auto">
+                <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Sisa</p>
+                <p className="text-[11px] sm:text-base font-bold text-emerald-500 mt-1 sm:mt-1.5 tabular-nums truncate block w-full sm:w-auto">
+                  {formatCurrency(totals.remaining, true)}
+                </p>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
       <main className="mx-auto max-w-screen-xl px-4 py-4 sm:px-6 lg:px-8 space-y-4">
-        {/* Highly Responsive Premium Budget Summary Box Layout */}
-        <div className="grid grid-cols-3 gap-1.5 sm:gap-3 bg-[var(--card)] border border-[var(--card-border)]/50 p-1.5 sm:p-3.5 rounded-2xl shadow-sm/5 relative overflow-hidden">
-
-          {/* Limit */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 py-2 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150 min-w-0">
-            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
-              <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            </div>
-            <div className="text-center sm:text-left min-w-0 w-full sm:w-auto">
-              <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Limit</p>
-              <p className="text-[11px] sm:text-base font-bold text-blue-500 mt-1 sm:mt-1.5 tabular-nums truncate">
-                {formatCurrency(totals.totalLimit, true)}
-              </p>
-            </div>
-          </div>
-
-          {/* Terpakai */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 py-2 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150 min-w-0">
-            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-rose-500/10 text-rose-500 shrink-0">
-              <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            </div>
-            <div className="text-center sm:text-left min-w-0 w-full sm:w-auto">
-              <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Terpakai</p>
-              <p className="text-[11px] sm:text-base font-bold text-rose-500 mt-1 sm:mt-1.5 tabular-nums truncate">
-                {formatCurrency(totals.totalSpent, true)}
-              </p>
-            </div>
-          </div>
-
-          {/* Sisa */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 py-2 px-1 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150 min-w-0">
-            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 shrink-0">
-              <ArrowUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            </div>
-            <div className="text-center sm:text-left min-w-0 w-full sm:w-auto">
-              <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Sisa</p>
-              <p className="text-[11px] sm:text-base font-bold text-emerald-500 mt-1 sm:mt-1.5 tabular-nums truncate block w-full sm:w-auto">
-                {formatCurrency(totals.remaining, true)}
-              </p>
-            </div>
-          </div>
-
-        </div>
-
         {/* List Anggaran */}
         <Card className="overflow-hidden shadow-sm border-[var(--card-border)]">
           <CardContent className="p-0">

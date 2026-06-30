@@ -269,7 +269,6 @@ export function TransactionsClient({
           </div>
 
           {/* Minimalist Net Summary Box Layout */}
-          {/* Highly Responsive Net Summary Box Layout */}
           <div className="grid grid-cols-3 gap-1.5 sm:gap-3 bg-[var(--card)] border border-[var(--card-border)]/50 p-1.5 sm:p-3.5 rounded-2xl shadow-sm/5 relative overflow-hidden">
             {/* Masuk */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 py-2 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150 min-w-0">

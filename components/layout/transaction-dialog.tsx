@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,6 +14,8 @@ import {
   Wallet,
   ArrowRight,
   ArrowLeft,
+  X,
+  Sparkles,
 } from "lucide-react";
 import {
   Dialog,
@@ -29,15 +31,40 @@ import { Textarea } from "@/components/ui/textarea";
 import { CATEGORY_META, BANK_ACCOUNTS } from "@/lib/mock-data";
 import { cn, formatCurrency } from "@/lib/utils";
 
+/* ── Custom Category Types & Storage ─────────────────────── */
+interface CustomCategory {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+}
+
+const STORAGE_KEY = "moneytracker_custom_categories";
+
+const EMOJI_OPTIONS = ["🏷️", "🎯", "🌟", "💫", "⭐", "🔥", "💎", "🎁", "🎪", "🎭", "🎨", "🎲", "🎸", "🎺", "🎻", "🏆", "🥇", "🎖️", "🏅"];
+const COLOR_OPTIONS = ["#10b981", "#6366f1", "#f59e0b", "#3b82f6", "#ec4899", "#14b8a6", "#8b5cf6", "#06b6d4", "#f97316", "#ef4444", "#84cc16", "#a855f7"];
+
+function loadCustomCategories(): CustomCategory[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomCategories(cats: CustomCategory[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cats));
+}
+
 /* ── Zod schema ─────────────────────────────────────────── */
 const schema = z.object({
   amount: z.number().positive("Nominal harus lebih dari 0"),
   type: z.enum(["income", "expense"]),
   bankAccountId: z.string().min(1, "Pilih rekening"),
-  category: z.enum([
-    "food", "transport", "shopping", "bills", "entertainment",
-    "health", "salary", "freelance", "investment", "other",
-  ]),
+  category: z.string().min(1, "Pilih kategori"),
   name: z.string().min(2, "Min. 2 karakter").max(60),
   date: z.string().min(1, "Pilih tanggal"),
   notes: z.string().max(200).optional(),
@@ -88,14 +115,28 @@ function StepIndicator({ total, current, onBack, showBack }: { total: number; cu
   );
 }
 
+/* ── MAIN COMPONENT ─────────────────────────────────────────── */
 export function TransactionDialog({
   open,
   onOpenChange,
   defaultType = "expense",
 }: TransactionDialogProps) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(0); // 0: Info Awal, 1: Detail Lengkap, 2: Sukses, 3: Form Kategori Kustom (Multi-step)
   const [isLoading, setLoading] = useState(false);
   const [rawAmount, setRawAmount] = useState("");
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  
+  // State manajemen pembuatan kategori kustom
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatEmoji, setNewCatEmoji] = useState("🏷️");
+  const [newCatColor, setNewCatColor] = useState("#10b981");
+
+  // Muat kategori kustom saat dialog dibuka
+  useEffect(() => {
+    if (open) {
+      setCustomCategories(loadCustomCategories());
+    }
+  }, [open]);
 
   const {
     register,
@@ -116,6 +157,44 @@ export function TransactionDialog({
 
   const type = watch("type");
   const bankId = watch("bankAccountId");
+
+  // Pisahkan kategori bawaan dan kustom berdasarkan tipe transaksi aktif
+  const getAllCategories = () => {
+    const defaults = type === "income" ? incomeCategories : expenseCategories;
+    const customForType = customCategories.filter(c => c.id.startsWith(`custom_${type}_`));
+    return { defaults, custom: customForType };
+  };
+
+  const handleCreateCategory = () => {
+    if (!newCatName.trim()) return;
+
+    const newId = `custom_${type}_${Date.now()}`;
+    const newCat: CustomCategory = {
+      id: newId,
+      name: newCatName.trim(),
+      emoji: newCatEmoji,
+      color: newCatColor,
+    };
+
+    const updated = [...customCategories, newCat];
+    setCustomCategories(updated);
+    saveCustomCategories(updated);
+    
+    // Set otomatis kategori form utama dengan ID yang baru saja dibuat
+    setValue("category", newId, { shouldValidate: true });
+    
+    // Reset state input kategori kustom & kembali ke Step 1
+    setNewCatName("");
+    setNewCatEmoji("🏷️");
+    setNewCatColor("#10b981");
+    setStep(1);
+  };
+
+  const handleDeleteCategory = (catId: string) => {
+    const updated = customCategories.filter(c => c.id !== catId);
+    setCustomCategories(updated);
+    saveCustomCategories(updated);
+  };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, "");
@@ -142,28 +221,31 @@ export function TransactionDialog({
     if (!v) {
       reset({ type: defaultType, date: new Date().toISOString().split("T")[0] });
       setRawAmount("");
+      setNewCatName("");
       setStep(0);
     }
     onOpenChange(v);
   };
 
-  const categoryOptions = type === "income" ? incomeCategories : expenseCategories;
+  const { defaults: categoryDefaults, custom: categoryCustom } = getAllCategories();
   const selectedBank = BANK_ACCOUNTS.find((b) => b.id === bankId);
   const isSelectedBankImgLogo = selectedBank?.logo?.startsWith("/");
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent showHandle className="max-w-md p-0 overflow-hidden rounded-t-[1.75rem] sm:rounded-2xl">
-        {/* Header */}
+      <DialogContent showHandle className={cn("p-0 overflow-hidden rounded-t-[1.75rem] sm:rounded-2xl transition-all duration-200", step === 3 ? "max-w-md" : "max-w-md")}>
+        {/* Dynamic Header Header */}
         <DialogHeader className="p-5 pb-3 border-b border-[var(--card-border)]/40">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
-              <Wallet className="h-4 w-4" />
+            <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl", step === 3 ? "bg-violet-500/10 text-violet-500" : "bg-emerald-500/10 text-emerald-500")}>
+              {step === 3 ? <Sparkles className="h-4 w-4" /> : <Wallet className="h-4 w-4" />}
             </div>
             <div>
-              <DialogTitle className="text-sm sm:text-base font-bold">Tambah Transaksi</DialogTitle>
+              <DialogTitle className="text-sm sm:text-base font-bold">
+                {step === 3 ? "Buat Kategori Baru" : "Tambah Transaksi"}
+              </DialogTitle>
               <DialogDescription className="text-[11px] sm:text-xs mt-0.5 opacity-80">
-                {step === 0 ? "Tentukan nominal rupiah & rekening" : "Lengkapi detail catatan transaksi"}
+                {step === 3 ? "Sesuaikan nama, emoji, dan warna kategori" : step === 0 ? "Tentukan nominal rupiah & rekening" : "Lengkapi detail catatan transaksi"}
               </DialogDescription>
             </div>
           </div>
@@ -245,7 +327,7 @@ export function TransactionDialog({
                   </div>
                   {errors.amount && (
                     <p className="text-[11px] text-rose-500 font-medium">{errors.amount.message}</p>
-                  )}
+                    )}
                 </div>
 
                 {/* Bank Grid View */}
@@ -276,7 +358,6 @@ export function TransactionDialog({
                                   : {}
                               }
                             >
-                              {/* PERUBAHAN 1: Validasi Tipe Logo Rekening di Grid */}
                               {isImgLogo ? (
                                 <div className={cn("h-6 flex items-center justify-center rounded-md p-0.5 w-10 shrink-0", isSelected ? "bg-white/95 shadow-sm" : "bg-transparent")}>
                                   <img src={account.logo} alt={account.name} className="max-h-full max-w-full object-contain" />
@@ -398,34 +479,85 @@ export function TransactionDialog({
 
                 {/* Category Grid Selection */}
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-[var(--muted-foreground)]">Pilih Kategori</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-[var(--muted-foreground)]">Pilih Kategori</Label>
+                    <button
+                      type="button"
+                      onClick={() => setStep(3)}
+                      className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 transition-colors cursor-pointer"
+                    >
+                      <PlusCircle className="h-3 w-3" />
+                      <span>Custom</span>
+                    </button>
+                  </div>
                   <Controller
                     name="category"
                     control={control}
                     render={({ field }) => (
-                      <div className="grid grid-cols-3 gap-2 max-h-[140px] overflow-y-auto pr-0.5 custom-scrollbar">
-                        {categoryOptions.map((cat) => {
-                          const meta = CATEGORY_META[cat];
-                          const isSelected = field.value === cat;
-                          return (
-                            <button
-                              key={cat}
-                              type="button"
-                              onClick={() => field.onChange(cat)}
-                              className={cn(
-                                "flex flex-col items-center justify-center gap-1 rounded-xl border py-2 px-1 text-center transition-all duration-150 select-none cursor-pointer min-h-[56px]",
-                                isSelected
-                                  ? "border-emerald-500 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 font-bold shadow-sm"
-                                  : "border-[var(--card-border)] bg-[var(--muted)]/40 text-[var(--muted-foreground)] hover:bg-[var(--muted)]/80"
-                              )}
-                            >
-                              <span className="text-base leading-none">{meta.emoji}</span>
-                              <span className="text-[10px] leading-tight truncate w-full px-0.5">
-                                {meta.label}
-                              </span>
-                            </button>
-                          );
-                        })}
+                      <div className="space-y-2 max-h-[120px] overflow-y-auto pr-0.5 custom-scrollbar">
+                        {/* Default Categories */}
+                        <div className="grid grid-cols-3 gap-2">
+                          {categoryDefaults.map((cat) => {
+                            const meta = CATEGORY_META[cat];
+                            const isSelected = field.value === cat;
+                            return (
+                              <button
+                                key={cat}
+                                type="button"
+                                onClick={() => field.onChange(cat)}
+                                className={cn(
+                                  "flex flex-col items-center justify-center gap-1 rounded-xl border py-2 px-1 text-center transition-all duration-150 select-none cursor-pointer min-h-[56px]",
+                                  isSelected
+                                    ? "border-emerald-500 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 font-bold shadow-sm"
+                                    : "border-[var(--card-border)] bg-[var(--muted)]/40 text-[var(--muted-foreground)] hover:bg-[var(--muted)]/80"
+                                )}
+                              >
+                                <span className="text-base leading-none">{meta?.emoji}</span>
+                                <span className="text-[10px] leading-tight truncate w-full px-0.5">
+                                  {meta?.label}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {/* Custom Categories */}
+                        {categoryCustom.length > 0 && (
+                          <div className="grid grid-cols-3 gap-2 pt-1 border-t border-[var(--card-border)]/30">
+                            {categoryCustom.map((cat) => {
+                              const isSelected = field.value === cat.id;
+                              return (
+                                <button
+                                  key={cat.id}
+                                  type="button"
+                                  onClick={() => field.onChange(cat.id)}
+                                  className={cn(
+                                    "flex flex-col items-center justify-center gap-1 rounded-xl border py-2 px-1 text-center transition-all duration-150 select-none cursor-pointer min-h-[56px] relative group",
+                                    isSelected
+                                      ? "border-emerald-500 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 font-bold shadow-sm"
+                                      : "border-[var(--card-border)] bg-[var(--muted)]/40 text-[var(--muted-foreground)] hover:bg-[var(--muted)]/80"
+                                  )}
+                                  style={isSelected ? { borderColor: cat.color, backgroundColor: `${cat.color}10` } : {}}
+                                >
+                                  <span className="text-base leading-none">{cat.emoji}</span>
+                                  <span className="text-[10px] leading-tight truncate w-full px-0.5">
+                                    {cat.name}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteCategory(cat.id);
+                                      if (field.value === cat.id) field.onChange("");
+                                    }}
+                                    className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-rose-500 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                  >
+                                    <X className="h-2.5 w-2.5" />
+                                  </button>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
                   />
@@ -463,6 +595,101 @@ export function TransactionDialog({
                 </Button>
               </motion.form>
             )}
+
+            {/* ── STEP 3: CREATE CUSTOM CATEGORY VIEW (MULTI-STEP INTEGRATED) ── */}
+            {step === 3 && (
+              <motion.div
+                key="step3"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-4 pt-0.5"
+              >
+                {/* Tombol Back yang mengembalikan alur ke Detail Form (Step 1) */}
+                <StepIndicator total={1} current={0} onBack={() => setStep(1)} showBack={true} />
+
+                {/* Preview Tampilan */}
+                <div className="flex items-center justify-center py-1">
+                  <div
+                    className="flex flex-col items-center justify-center gap-1 rounded-xl border-2 py-2 px-5 min-w-[70px]"
+                    style={{ borderColor: newCatColor, backgroundColor: `${newCatColor}15` }}
+                  >
+                    <span className="text-xl leading-none">{newCatEmoji}</span>
+                    <span className="text-[10px] font-bold" style={{ color: newCatColor }}>
+                      {newCatName || "Nama"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Category Name Input */}
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-semibold text-[var(--muted-foreground)]">Nama Kategori</Label>
+                  <Input
+                    placeholder="Nama kategori..."
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                    className="h-10 text-xs rounded-xl"
+                    maxLength={20}
+                    autoFocus
+                  />
+                </div>
+
+                {/* Emoji Selection */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold text-[var(--muted-foreground)]">Emoji</span>
+                  <div className="flex flex-wrap gap-1 p-1.5 rounded-lg border border-[var(--card-border)] bg-[var(--muted)]/30 max-h-[70px] overflow-y-auto custom-scrollbar">
+                    {EMOJI_OPTIONS.map((emoji, idx) => (
+                      <button
+                        key={`${emoji}-${idx}`}
+                        type="button"
+                        onClick={() => setNewCatEmoji(emoji)}
+                        className={cn(
+                          "h-7 w-7 flex items-center justify-center rounded-md text-sm transition-all cursor-pointer",
+                          newCatEmoji === emoji
+                            ? "bg-[var(--card)] shadow-sm ring-2 ring-violet-500/50"
+                            : "hover:bg-[var(--muted)]/80"
+                        )}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Color Selection */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold text-[var(--muted-foreground)]">Warna</span>
+                  <div className="flex flex-wrap gap-2 p-1.5 rounded-lg border border-[var(--card-border)] bg-[var(--muted)]/30">
+                    {COLOR_OPTIONS.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setNewCatColor(color)}
+                        className={cn(
+                          "h-6 w-6 rounded-full transition-all cursor-pointer",
+                          newCatColor === color ? "ring-2 ring-offset-1 ring-offset-[var(--card)] scale-110" : "hover:scale-110"
+                        )}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Action Submit Kategori */}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleCreateCategory}
+                  disabled={!newCatName.trim()}
+                  className="w-full h-10 text-xs font-bold rounded-xl bg-violet-600 hover:bg-violet-500 text-white cursor-pointer disabled:opacity-50 mt-1 shadow-sm"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                  Simpan Kategori
+                </Button>
+              </motion.div>
+            )}
+
           </AnimatePresence>
         </div>
       </DialogContent>
