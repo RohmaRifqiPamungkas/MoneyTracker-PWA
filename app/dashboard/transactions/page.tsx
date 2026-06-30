@@ -5,10 +5,24 @@ export const metadata = {
   title: "Riwayat Transaksi | MoneyTracker",
 };
 
-export default async function TransactionsPage() {
-  // Ambil transaksi lebih banyak (misal: 250 transaksi terakhir) untuk halaman riwayat
+interface TransactionsPageProps {
+  searchParams: Promise<{
+    month?: string;
+    year?: string;
+  }>;
+}
+
+export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
+  // Ambil parameter bulan dan tahun dari URL (jika tidak ada, gunakan bulan & tahun saat ini)
+  const params = await searchParams;
+  const currentDate = new Date();
+
+  const selectedMonth = params.month ? parseInt(params.month, 10) : currentDate.getMonth();
+  const selectedYear = params.year ? parseInt(params.year, 10) : currentDate.getFullYear();
+
+  // Ambil transaksi berdasarkan bulan dan tahun yang dipilih
   const [transactions, bankAccounts] = await Promise.all([
-    getTransactions(250),
+    getTransactions(selectedMonth, selectedYear, 250),
     getBankAccounts(),
   ]);
 
@@ -16,6 +30,8 @@ export default async function TransactionsPage() {
     <TransactionsClient
       initialTransactions={transactions}
       bankAccounts={bankAccounts}
+      currentMonth={selectedMonth}
+      currentYear={selectedYear}
     />
   );
 }

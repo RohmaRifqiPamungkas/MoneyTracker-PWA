@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -37,15 +38,51 @@ import type { TransactionType, Category } from "@/lib/types";
 
 const PAGE_SIZE = 10;
 
+const MONTHS = [
+  { value: 0, label: "Januari" },
+  { value: 1, label: "Februari" },
+  { value: 2, label: "Maret" },
+  { value: 3, label: "April" },
+  { value: 4, label: "Mei" },
+  { value: 5, label: "Juni" },
+  { value: 6, label: "Juli" },
+  { value: 7, label: "Agustus" },
+  { value: 8, label: "September" },
+  { value: 9, label: "Oktober" },
+  { value: 10, label: "November" },
+  { value: 11, label: "Desember" },
+];
+
+const YEARS = [2024, 2025, 2026, 2027];
+
 interface TransactionsClientProps {
   initialTransactions: TransactionRow[];
   bankAccounts: BankAccountRow[];
+  currentMonth: number;
+  currentYear: number;
 }
 
 export function TransactionsClient({
   initialTransactions,
   bankAccounts,
+  currentMonth: initialMonth,
+  currentYear: initialYear,
 }: TransactionsClientProps) {
+  const router = useRouter();
+  const [currentMonth, setCurrentMonth] = useState(initialMonth);
+  const [currentYear, setCurrentYear] = useState(initialYear);
+
+  // Update state when props change (e.g., via URL navigation)
+  useEffect(() => {
+    setCurrentMonth(initialMonth);
+    setCurrentYear(initialYear);
+  }, [initialMonth, initialYear]);
+
+  // Fungsi untuk update query params URL saat dropdown diganti
+  const handlePeriodChange = (month: number, year: number) => {
+    router.push(`/dashboard/transactions?month=${month}&year=${year}`);
+  };
+
   const BANK_MAP = useMemo(() => {
     return Object.fromEntries(bankAccounts.map((b) => [b.id, b]));
   }, [bankAccounts]);
@@ -57,7 +94,7 @@ export function TransactionsClient({
   const [sortBy, setSortBy] = useState<"date_desc" | "date_asc" | "amount_desc" | "amount_asc">("date_desc");
   const [page, setPage] = useState(1);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  
+
   // State laci filter mobile
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
@@ -139,7 +176,7 @@ export function TransactionsClient({
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `Laporan_ArusKas_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute("download", `Laporan_ArusKas_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -156,49 +193,128 @@ export function TransactionsClient({
       {/* ── JUMBO PREMIUM HEADER ─────────────────────────────── */}
       <div className="w-full bg-gradient-to-b from-[var(--muted)]/50 to-transparent border-b border-[var(--card-border)]/40 px-4 pt-5 pb-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-screen-xl flex flex-col gap-5">
+          {/* Header Row: Title + Export */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
               <Link
                 href="/dashboard"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--card-border)]/60 bg-[var(--card)] hover:bg-[var(--muted)] text-[var(--foreground)] transition-all active:scale-95"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted)] text-[var(--foreground)] transition-all active:scale-95"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Link>
-              <div>
-                <h1 className="text-base font-bold text-[var(--foreground)] sm:text-xl tracking-tight">
+              <div className="min-w-0">
+                <h1 className="text-sm font-bold text-[var(--foreground)] sm:text-lg truncate">
                   Riwayat Kas
                 </h1>
-                <p className="text-xs text-[var(--muted-foreground)] hidden xs:block">
+                <p className="text-[11px] text-[var(--muted-foreground)] truncate hidden xs:block">
                   Total {filteredAndSorted.length} catatan transaksi terekam
                 </p>
               </div>
             </div>
-            
+
             <Button onClick={handleExportCSV} variant="ghost" size="sm" className="h-9 rounded-xl gap-2 font-medium bg-[var(--card)] border border-[var(--card-border)]/60 shadow-sm text-xs px-3">
               <Download className="h-3.5 w-3.5 text-emerald-500" />
               <span>Export</span>
             </Button>
           </div>
 
-          {/* New Minimalist Net Summary Box Layout */}
-          <div className="grid grid-cols-3 gap-2.5 bg-[var(--card)] border border-[var(--card-border)]/50 p-2 sm:p-3 rounded-2xl shadow-sm/5">
-            <div className="text-center py-1 border-r border-[var(--card-border)]/30">
-              <p className="text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Masuk</p>
-              <p className="text-xs sm:text-base font-bold text-emerald-500 mt-0.5 tabular-nums truncate">
-                {formatCurrency(stats.income, true)}
-              </p>
+          {/* Periode Selector */}
+          <div className="flex flex-wrap items-center gap-2 sm:w-auto w-full">
+            {/* Selector Bulan */}
+            <div className="flex-1 sm:flex-initial min-w-[110px]">
+              <Select
+                value={String(currentMonth)}
+                onValueChange={(val) => handlePeriodChange(Number(val), currentYear)}
+              >
+                <SelectTrigger className="w-full rounded-xl border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] outline-none transition-all duration-150 hover:bg-[var(--muted)] focus:ring-2 focus:ring-emerald-500/30 h-9">
+                  <Calendar className="h-3.5 w-3.5 mr-1.5 opacity-60" />
+                  <SelectValue placeholder="Bulan" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-[var(--card-border)] bg-[var(--card)] shadow-xl max-h-[240px]">
+                  {MONTHS.map((m) => (
+                    <SelectItem
+                      key={m.value}
+                      value={String(m.value)}
+                      className="text-xs font-medium rounded-lg cursor-pointer"
+                    >
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="text-center py-1 border-r border-[var(--card-border)]/30">
-              <p className="text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Keluar</p>
-              <p className="text-xs sm:text-base font-bold text-rose-500 mt-0.5 tabular-nums truncate">
-                {formatCurrency(stats.expense, true)}
-              </p>
+
+            {/* Selector Tahun */}
+            <div className="flex-1 sm:flex-initial min-w-[80px]">
+              <Select
+                value={String(currentYear)}
+                onValueChange={(val) => handlePeriodChange(currentMonth, Number(val))}
+              >
+                <SelectTrigger className="w-full rounded-xl border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] outline-none transition-all duration-150 hover:bg-[var(--muted)] focus:ring-2 focus:ring-emerald-500/30 h-9">
+                  <SelectValue placeholder="Tahun" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-[var(--card-border)] bg-[var(--card)] shadow-xl">
+                  {YEARS.map((y) => (
+                    <SelectItem
+                      key={y}
+                      value={String(y)}
+                      className="text-xs font-medium rounded-lg cursor-pointer"
+                    >
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="text-center py-1">
-              <p className="text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Net</p>
-              <p className={cn("text-xs sm:text-base font-bold mt-0.5 tabular-nums truncate", stats.net >= 0 ? "text-emerald-500" : "text-rose-500")}>
-                {formatCurrency(stats.net, true)}
-              </p>
+          </div>
+
+          {/* Minimalist Net Summary Box Layout */}
+          <div className="grid grid-cols-3 gap-3 bg-[var(--card)] border border-[var(--card-border)]/50 p-2 sm:p-3.5 rounded-2xl shadow-sm/5 relative overflow-hidden">
+            {/* Masuk */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 py-1.5 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150">
+              <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 shrink-0">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+              <div className="text-center sm:text-left min-w-0 flex-1">
+                <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Masuk</p>
+                <p className="text-xs sm:text-base font-bold text-emerald-500 mt-1 tabular-nums truncate">
+                  {formatCurrency(stats.income, true)}
+                </p>
+              </div>
+            </div>
+
+            {/* Keluar */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 py-1.5 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150">
+              <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 text-rose-500 shrink-0">
+                <TrendingDown className="h-4 w-4" />
+              </div>
+              <div className="text-center sm:text-left min-w-0 flex-1">
+                <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Keluar</p>
+                <p className="text-xs sm:text-base font-bold text-rose-500 mt-1 tabular-nums truncate">
+                  {formatCurrency(stats.expense, true)}
+                </p>
+              </div>
+            </div>
+
+            {/* Net */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 py-1.5 px-1 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150">
+              <div className={cn(
+                "hidden sm:flex h-8 w-8 items-center justify-center rounded-lg shrink-0",
+                stats.net >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
+              )}>
+                <ArrowUpDown className="h-4 w-4" />
+              </div>
+              <div className="text-center sm:text-left min-w-0 flex-1">
+                <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Net Bersih</p>
+                <p className={cn(
+                  "text-xs sm:text-base font-bold mt-1 tabular-nums truncate px-1 sm:px-0 rounded-md inline-block max-w-full",
+                  stats.net >= 0
+                    ? "text-emerald-500 bg-emerald-500/5 sm:bg-transparent"
+                    : "text-rose-500 bg-rose-500/5 sm:bg-transparent"
+                )}>
+                  {stats.net > 0 ? "+" : ""}{formatCurrency(stats.net, true)}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -216,7 +332,7 @@ export function TransactionsClient({
               className="pl-10 pr-4 bg-[var(--card)] border-[var(--card-border)]/80 focus-visible:ring-1 focus-visible:ring-[var(--ring)] h-11 text-xs sm:text-sm rounded-xl w-full shadow-sm/5"
             />
           </div>
-          
+
           {/* Mobile Filter Anchor Button */}
           <Button
             type="button"
@@ -331,7 +447,7 @@ export function TransactionsClient({
                           <h3 className="truncate text-xs sm:text-sm font-semibold text-[var(--foreground)] leading-tight">
                             {tx.name}
                           </h3>
-                          
+
                           {/* Metadata Badges */}
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] sm:text-xs text-[var(--muted-foreground)] font-medium">
                             <span className="text-[var(--foreground)] opacity-85">{catMeta.label}</span>
@@ -424,7 +540,7 @@ export function TransactionsClient({
             >
               {/* Top Handle Decorator */}
               <div className="h-1 w-12 bg-[var(--card-border)]/60 rounded-full mx-auto mb-2 shrink-0" onClick={() => setIsFilterDrawerOpen(false)} />
-              
+
               <div className="flex items-center justify-between pb-1">
                 <h3 className="text-sm font-bold text-[var(--foreground)]">Filter Transaksi</h3>
                 <button onClick={() => setIsFilterDrawerOpen(false)} className="h-7 w-7 rounded-full bg-[var(--muted)] flex items-center justify-center text-[var(--muted-foreground)]"><X className="h-4 w-4" /></button>

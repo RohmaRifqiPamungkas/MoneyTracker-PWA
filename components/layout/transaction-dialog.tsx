@@ -31,21 +31,21 @@ import { cn, formatCurrency } from "@/lib/utils";
 
 /* ── Zod schema ─────────────────────────────────────────── */
 const schema = z.object({
-  amount:        z.number().positive("Nominal harus lebih dari 0"),
-  type:          z.enum(["income", "expense"]),
+  amount: z.number().positive("Nominal harus lebih dari 0"),
+  type: z.enum(["income", "expense"]),
   bankAccountId: z.string().min(1, "Pilih rekening"),
-  category:      z.enum([
+  category: z.enum([
     "food", "transport", "shopping", "bills", "entertainment",
     "health", "salary", "freelance", "investment", "other",
   ]),
-  name:  z.string().min(2, "Min. 2 karakter").max(60),
-  date:  z.string().min(1, "Pilih tanggal"),
+  name: z.string().min(2, "Min. 2 karakter").max(60),
+  date: z.string().min(1, "Pilih tanggal"),
   notes: z.string().max(200).optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
 
-const incomeCategories  = ["salary", "freelance", "investment", "other"]                             as const;
+const incomeCategories = ["salary", "freelance", "investment", "other"] as const;
 const expenseCategories = ["food", "transport", "shopping", "bills", "entertainment", "health", "other"] as const;
 
 interface TransactionDialogProps {
@@ -77,8 +77,8 @@ function StepIndicator({ total, current, onBack, showBack }: { total: number; cu
               i === current
                 ? "w-5 h-1.5 bg-emerald-500"
                 : i < current
-                ? "w-1.5 h-1.5 bg-emerald-500/40"
-                : "w-1.5 h-1.5 bg-[var(--card-border)]"
+                  ? "w-1.5 h-1.5 bg-emerald-500/40"
+                  : "w-1.5 h-1.5 bg-[var(--card-border)]"
             )}
           />
         ))}
@@ -93,7 +93,7 @@ export function TransactionDialog({
   onOpenChange,
   defaultType = "expense",
 }: TransactionDialogProps) {
-  const [step, setStep]         = useState(0); 
+  const [step, setStep] = useState(0);
   const [isLoading, setLoading] = useState(false);
   const [rawAmount, setRawAmount] = useState("");
 
@@ -114,7 +114,7 @@ export function TransactionDialog({
     },
   });
 
-  const type   = watch("type");
+  const type = watch("type");
   const bankId = watch("bankAccountId");
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,7 +148,8 @@ export function TransactionDialog({
   };
 
   const categoryOptions = type === "income" ? incomeCategories : expenseCategories;
-  const selectedBank    = BANK_ACCOUNTS.find((b) => b.id === bankId);
+  const selectedBank = BANK_ACCOUNTS.find((b) => b.id === bankId);
+  const isSelectedBankImgLogo = selectedBank?.logo?.startsWith("/");
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -212,7 +213,7 @@ export function TransactionDialog({
                 transition={{ duration: 0.2 }}
                 className="space-y-4 pt-0.5"
               >
-                <StepIndicator total={2} current={0} onBack={() => {}} showBack={false} />
+                <StepIndicator total={2} current={0} onBack={() => { }} showBack={false} />
 
                 {/* Segmented Type Toggle */}
                 <Controller
@@ -220,7 +221,7 @@ export function TransactionDialog({
                   control={control}
                   render={({ field }) => (
                     <div className="flex rounded-xl bg-[var(--muted)]/60 p-1 gap-1 border border-[var(--card-border)]/20">
-                      <TypeButton active={field.value === "income"}  onClick={() => field.onChange("income")}  icon={<TrendingUp  className="h-4 w-4" />} label="Pemasukan"   activeClass="text-emerald-600 dark:text-emerald-400 bg-[var(--card)] border border-[var(--card-border)]/40 shadow-sm" />
+                      <TypeButton active={field.value === "income"} onClick={() => field.onChange("income")} icon={<TrendingUp className="h-4 w-4" />} label="Pemasukan" activeClass="text-emerald-600 dark:text-emerald-400 bg-[var(--card)] border border-[var(--card-border)]/40 shadow-sm" />
                       <TypeButton active={field.value === "expense"} onClick={() => field.onChange("expense")} icon={<TrendingDown className="h-4 w-4" />} label="Pengeluaran" activeClass="text-rose-600 dark:text-rose-400 bg-[var(--card)] border border-[var(--card-border)]/40 shadow-sm" />
                     </div>
                   )}
@@ -257,6 +258,7 @@ export function TransactionDialog({
                       <div className="grid grid-cols-3 gap-2">
                         {BANK_ACCOUNTS.map((account) => {
                           const isSelected = field.value === account.id;
+                          const isImgLogo = account.logo?.startsWith("/");
                           return (
                             <button
                               key={account.id}
@@ -274,7 +276,15 @@ export function TransactionDialog({
                                   : {}
                               }
                             >
-                              <span className="text-lg sm:text-xl leading-none">{account.logo}</span>
+                              {/* PERUBAHAN 1: Validasi Tipe Logo Rekening di Grid */}
+                              {isImgLogo ? (
+                                <div className={cn("h-6 flex items-center justify-center rounded-md p-0.5 w-10 shrink-0", isSelected ? "bg-white/95 shadow-sm" : "bg-transparent")}>
+                                  <img src={account.logo} alt={account.name} className="max-h-full max-w-full object-contain" />
+                                </div>
+                              ) : (
+                                <span className="text-lg sm:text-xl leading-none">{account.logo}</span>
+                              )}
+
                               <span className={cn("text-[10px] font-bold tracking-tight truncate w-full px-0.5", isSelected ? "text-white" : "text-[var(--foreground)]")}>
                                 {account.name}
                               </span>
@@ -305,10 +315,17 @@ export function TransactionDialog({
                         className="flex items-center gap-3 rounded-xl p-2.5 border border-[var(--card-border)]/40 bg-[var(--muted)]/40"
                       >
                         <div
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm border border-[var(--card-border)]/10"
-                          style={{ background: `linear-gradient(135deg, ${selectedBank.gradient[0]}20, ${selectedBank.gradient[1]}10)` }}
+                          className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm border border-[var(--card-border)]/10 overflow-hidden",
+                            isSelectedBankImgLogo ? "bg-white p-1 shadow-sm" : ""
+                          )}
+                          style={!isSelectedBankImgLogo ? { background: `linear-gradient(135deg, ${selectedBank.gradient[0]}20, ${selectedBank.gradient[1]}10)` } : undefined}
                         >
-                          {selectedBank.logo}
+                          {isSelectedBankImgLogo ? (
+                            <img src={selectedBank.logo} alt={selectedBank.name} className="max-h-full max-w-full object-contain" />
+                          ) : (
+                            selectedBank.logo
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-semibold text-[var(--foreground)] truncate">{selectedBank.name}</p>
@@ -346,9 +363,17 @@ export function TransactionDialog({
               >
                 <StepIndicator total={2} current={1} onBack={() => setStep(0)} showBack={true} />
 
-                {/* Condensed Structural Recap banner */}
                 <div className="flex items-center gap-3 rounded-xl border border-[var(--card-border)]/50 bg-[var(--muted)]/30 p-2.5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--card)] border text-sm">{selectedBank?.logo}</div>
+                  <div className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-sm overflow-hidden",
+                    isSelectedBankImgLogo ? "bg-white p-1 shadow-sm" : "bg-[var(--card)]"
+                  )}>
+                    {isSelectedBankImgLogo ? (
+                      <img src={selectedBank?.logo} alt={selectedBank?.name} className="max-h-full max-w-full object-contain" />
+                    ) : (
+                      selectedBank?.logo
+                    )}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-medium text-[var(--muted-foreground)]">
                       {type === "income" ? "Rencana Masuk" : "Rencana Keluar"} &bull; {selectedBank?.name}

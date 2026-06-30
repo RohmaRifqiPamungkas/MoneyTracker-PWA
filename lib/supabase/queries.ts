@@ -119,20 +119,50 @@ export async function updateBankBalance(id: string, balance: number): Promise<vo
 // ── Budget Items ────────────────────────────────────────────────────────────
 
 /**
- * Ambil semua budget kategori bulan ini.
+ * Ambil semua budget kategori dengan spent yang dihitung dari transaksi bulan tersebut.
  */
-export async function getBudgetItems(): Promise<BudgetItemRow[]> {
+export async function getBudgetItems(month?: number, year?: number): Promise<BudgetItemRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const { start, end } = getMonthBounds(month, year);
+
+  // Ambil semua budget items
+  const { data: budgetItems, error: budgetError } = await supabase
     .from("budget_items")
     .select("*")
     .order("created_at", { ascending: true });
 
-  if (error) {
-    console.error("[getBudgetItems]", error.message);
+  if (budgetError) {
+    console.error("[getBudgetItems]", budgetError.message);
     return [];
   }
-  return (data ?? []) as BudgetItemRow[];
+
+  // Ambil transaksi expense bulan tersebut
+  const { data: transactions, error: txError } = (await supabase
+    .from("transactions")
+    .select("amount, category, type")
+    .eq("type", "expense")
+    .gte("date", start)
+    .lte("date", end)) as { data: { amount: number; category: string }[] | null, error: any };
+
+  if (txError) {
+    console.error("[getBudgetItems transactions]", txError.message);
+    return (budgetItems ?? []) as BudgetItemRow[];
+  }
+
+  // Hitung total expense per kategori
+  const categorySpent = new Map<string, number>();
+  (transactions ?? []).forEach((tx) => {
+    categorySpent.set(tx.category, (categorySpent.get(tx.category) || 0) + tx.amount);
+  });
+
+  // Merge spent dari transaksi ke budget items
+  const items = budgetItems as BudgetItemRow[] | null;
+  const result = (items ?? []).map((item: BudgetItemRow) => ({
+    ...item,
+    spent: categorySpent.get(item.category) || 0,
+  }));
+
+  return result;
 }
 
 /**

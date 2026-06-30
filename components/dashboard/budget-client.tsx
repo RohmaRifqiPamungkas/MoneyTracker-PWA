@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -10,6 +11,9 @@ import {
   CheckCircle2,
   Loader2,
   AlertTriangle,
+  Calendar,
+  TrendingDown,
+  ArrowUpDown,
 } from "lucide-react";
 import Link from "next/link";
 import { useForm, Controller } from "react-hook-form";
@@ -40,6 +44,23 @@ const budgetSchema = z.object({
 });
 type BudgetFormValues = z.infer<typeof budgetSchema>;
 
+const MONTHS = [
+  { value: 0, label: "Januari" },
+  { value: 1, label: "Februari" },
+  { value: 2, label: "Maret" },
+  { value: 3, label: "April" },
+  { value: 4, label: "Mei" },
+  { value: 5, label: "Juni" },
+  { value: 6, label: "Juli" },
+  { value: 7, label: "Agustus" },
+  { value: 8, label: "September" },
+  { value: 9, label: "Oktober" },
+  { value: 10, label: "November" },
+  { value: 11, label: "Desember" },
+];
+
+const YEARS = [2024, 2025, 2026, 2027];
+
 const expenseCategories = [
   { value: "food", label: "Makanan", emoji: "🍔" },
   { value: "transport", label: "Transportasi", emoji: "🚗" },
@@ -50,7 +71,16 @@ const expenseCategories = [
   { value: "other", label: "Lainnya", emoji: "📦" },
 ];
 
-export function BudgetClient({ initialBudgets }: { initialBudgets: BudgetItemRow[] }) {
+interface BudgetClientProps {
+  initialBudgets: BudgetItemRow[];
+  currentMonth: number;
+  currentYear: number;
+}
+
+export function BudgetClient({ initialBudgets, currentMonth: initialMonth, currentYear: initialYear }: BudgetClientProps) {
+  const router = useRouter();
+  const [currentMonth, setCurrentMonth] = useState(initialMonth);
+  const [currentYear, setCurrentYear] = useState(initialYear);
   const [budgets, setBudgets] = useState<BudgetItemRow[]>(initialBudgets);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<BudgetItemRow | null>(null);
@@ -58,6 +88,18 @@ export function BudgetClient({ initialBudgets }: { initialBudgets: BudgetItemRow
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [rawLimit, setRawLimit] = useState("");
+
+  // Update state when props change
+  useEffect(() => {
+    setCurrentMonth(initialMonth);
+    setCurrentYear(initialYear);
+    setBudgets(initialBudgets);
+  }, [initialMonth, initialYear, initialBudgets]);
+
+  // Fungsi untuk update query params URL saat dropdown diganti
+  const handlePeriodChange = (month: number, year: number) => {
+    router.push(`/dashboard/budget?month=${month}&year=${year}`);
+  };
 
   const {
     register,
@@ -129,55 +171,126 @@ export function BudgetClient({ initialBudgets }: { initialBudgets: BudgetItemRow
   return (
     <div className="min-h-screen bg-[var(--background)] pb-24 lg:pb-10">
       {/* Header */}
-      <header className="sticky top-0 z-30 w-full border-b border-[var(--card-border)] bg-[var(--background)]/80 backdrop-blur-xl">
-        <div className="mx-auto max-w-screen-xl px-4 py-3.5 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Link
-              href="/dashboard"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted)] text-[var(--foreground)] transition-all active:scale-95"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-            <div className="min-w-0">
-              <h1 className="text-sm font-bold text-[var(--foreground)] sm:text-lg truncate">
-                Anggaran Bulanan
-              </h1>
-              <p className="text-[11px] text-[var(--muted-foreground)] truncate hidden xs:block">
-                Kendalikan pengeluaran bulanan Anda per kategori
-              </p>
+      <div className="w-full bg-gradient-to-b from-[var(--muted)]/50 to-transparent border-b border-[var(--card-border)]/40 px-4 pt-5 pb-6 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-screen-xl flex flex-col gap-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Link
+                href="/dashboard"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--card-border)] bg-[var(--card)] hover:bg-[var(--muted)] text-[var(--foreground)] transition-all active:scale-95"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+              <div className="min-w-0">
+                <h1 className="text-sm font-bold text-[var(--foreground)] sm:text-lg truncate">
+                  Anggaran Bulanan
+                </h1>
+                <p className="text-[11px] text-[var(--muted-foreground)] truncate hidden xs:block">
+                  Kendalikan pengeluaran bulanan Anda per kategori
+                </p>
+              </div>
+            </div>
+
+            <Button onClick={handleOpenAdd} size="sm" className="gap-1 rounded-xl text-xs h-9 shrink-0 shadow-sm cursor-pointer">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Atur Budget</span>
+            </Button>
+          </div>
+
+          {/* Periode Selector */}
+          <div className="flex items-center gap-2 w-full sm:w-auto w-full">
+            {/* Selector Bulan */}
+            <div className="flex-1 sm:flex-initial min-w-[110px]">
+              <Select
+                value={String(currentMonth)}
+                onValueChange={(val) => handlePeriodChange(Number(val), currentYear)}
+              >
+                <SelectTrigger className="w-full rounded-xl border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] outline-none transition-all duration-150 hover:bg-[var(--muted)] focus:ring-2 focus:ring-emerald-500/30 h-9">
+                  <Calendar className="h-3.5 w-3.5 mr-1.5 opacity-60" />
+                  <SelectValue placeholder="Bulan" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-[var(--card-border)] bg-[var(--card)] shadow-xl max-h-[240px]">
+                  {MONTHS.map((m) => (
+                    <SelectItem
+                      key={m.value}
+                      value={String(m.value)}
+                      className="text-xs font-medium rounded-lg cursor-pointer"
+                    >
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Selector Tahun */}
+            <div className="flex-1 sm:flex-initial min-w-[80px]">
+              <Select
+                value={String(currentYear)}
+                onValueChange={(val) => handlePeriodChange(currentMonth, Number(val))}
+              >
+                <SelectTrigger className="w-full rounded-xl border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] outline-none transition-all duration-150 hover:bg-[var(--muted)] focus:ring-2 focus:ring-emerald-500/30 h-9">
+                  <SelectValue placeholder="Tahun" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-[var(--card-border)] bg-[var(--card)] shadow-xl">
+                  {YEARS.map((y) => (
+                    <SelectItem
+                      key={y}
+                      value={String(y)}
+                      className="text-xs font-medium rounded-lg cursor-pointer"
+                    >
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <Button onClick={handleOpenAdd} size="sm" className="gap-1 rounded-xl text-xs h-9 shrink-0 shadow-sm cursor-pointer">
-            <Plus className="h-4 w-4" />
-            <span>Atur Budget</span>
-          </Button>
         </div>
-      </header>
+      </div>
 
       <main className="mx-auto max-w-screen-xl px-4 py-4 sm:px-6 lg:px-8 space-y-4">
         {/* Ringkasan Anggaran (Responsive layout font & spacing) */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-4">
-          <Card className="p-3 flex flex-col justify-between overflow-hidden relative border-[var(--card-border)]/60 shadow-sm/5">
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500" />
-            <span className="text-[10px] sm:text-xs font-semibold text-[var(--muted-foreground)]">Limit</span>
-            <span className="text-xs sm:text-base font-bold text-blue-500 mt-1 tabular-nums truncate">
-              {formatCurrency(totals.totalLimit, true)}
-            </span>
-          </Card>
-          <Card className="p-3 flex flex-col justify-between overflow-hidden relative border-[var(--card-border)]/60 shadow-sm/5">
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-rose-500" />
-            <span className="text-[10px] sm:text-xs font-semibold text-[var(--muted-foreground)]">Terpakai</span>
-            <span className="text-xs sm:text-base font-bold text-rose-500 mt-1 tabular-nums truncate">
-              {formatCurrency(totals.totalSpent, true)}
-            </span>
-          </Card>
-          <Card className="p-3 flex flex-col justify-between overflow-hidden relative border-[var(--card-border)]/60 shadow-sm/5">
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-emerald-500" />
-            <span className="text-[10px] sm:text-xs font-semibold text-[var(--muted-foreground)]">Sisa</span>
-            <span className="text-xs sm:text-base font-bold text-emerald-500 mt-1 tabular-nums truncate">
-              {formatCurrency(totals.remaining, true)}
-            </span>
-          </Card>
+        {/* Interactive Premium Budget Summary Box Layout */}
+        <div className="grid grid-cols-3 gap-3 bg-[var(--card)] border border-[var(--card-border)]/50 p-2 sm:p-3.5 rounded-2xl shadow-sm/5 relative overflow-hidden">
+          {/* Limit */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 py-1.5 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150">
+            <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
+              <Target className="h-4 w-4" />
+            </div>
+            <div className="text-center sm:text-left min-w-0 flex-1">
+              <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Limit</p>
+              <p className="text-xs sm:text-base font-bold text-blue-500 mt-1 tabular-nums truncate">
+                {formatCurrency(totals.totalLimit, true)}
+              </p>
+            </div>
+          </div>
+
+          {/* Terpakai */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 py-1.5 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150">
+            <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 text-rose-500 shrink-0">
+              <TrendingDown className="h-4 w-4" />
+            </div>
+            <div className="text-center sm:text-left min-w-0 flex-1">
+              <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Terpakai</p>
+              <p className="text-xs sm:text-base font-bold text-rose-500 mt-1 tabular-nums truncate">
+                {formatCurrency(totals.totalSpent, true)}
+              </p>
+            </div>
+          </div>
+
+          {/* Sisa */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 py-1.5 px-1 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150">
+            <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 shrink-0">
+              <ArrowUpDown className="h-4 w-4" />
+            </div>
+            <div className="text-center sm:text-left min-w-0 flex-1">
+              <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Sisa</p>
+              <p className="text-xs sm:text-base font-bold text-emerald-500 mt-1 tabular-nums truncate px-1 sm:px-0 rounded-md inline-block max-w-full bg-emerald-500/5 sm:bg-transparent">
+                {formatCurrency(totals.remaining, true)}
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* List Anggaran */}
