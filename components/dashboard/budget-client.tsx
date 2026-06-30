@@ -169,10 +169,11 @@ export function BudgetClient({ initialBudgets, currentMonth: initialMonth, curre
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)] pb-24 lg:pb-10">
-      {/* Header */}
+    <div className="min-h-screen bg-[var(--background)] pb-32">
+      {/* ── JUMBO PREMIUM HEADER ─────────────────────────────── */}
       <div className="w-full bg-gradient-to-b from-[var(--muted)]/50 to-transparent border-b border-[var(--card-border)]/40 px-4 pt-5 pb-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-screen-xl flex flex-col gap-5">
+          {/* Header Row: Title + Add */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5 min-w-0">
               <Link
@@ -198,7 +199,7 @@ export function BudgetClient({ initialBudgets, currentMonth: initialMonth, curre
           </div>
 
           {/* Periode Selector */}
-          <div className="flex items-center gap-2 w-full sm:w-auto w-full">
+          <div className="flex flex-wrap items-center gap-2 sm:w-auto w-full">
             {/* Selector Bulan */}
             <div className="flex-1 sm:flex-initial min-w-[110px]">
               <Select
@@ -250,47 +251,48 @@ export function BudgetClient({ initialBudgets, currentMonth: initialMonth, curre
       </div>
 
       <main className="mx-auto max-w-screen-xl px-4 py-4 sm:px-6 lg:px-8 space-y-4">
-        {/* Ringkasan Anggaran (Responsive layout font & spacing) */}
-        {/* Interactive Premium Budget Summary Box Layout */}
-        <div className="grid grid-cols-3 gap-3 bg-[var(--card)] border border-[var(--card-border)]/50 p-2 sm:p-3.5 rounded-2xl shadow-sm/5 relative overflow-hidden">
+        {/* Highly Responsive Premium Budget Summary Box Layout */}
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-3 bg-[var(--card)] border border-[var(--card-border)]/50 p-1.5 sm:p-3.5 rounded-2xl shadow-sm/5 relative overflow-hidden">
+
           {/* Limit */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 py-1.5 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150">
-            <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
-              <Target className="h-4 w-4" />
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 py-2 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150 min-w-0">
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
+              <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
-            <div className="text-center sm:text-left min-w-0 flex-1">
+            <div className="text-center sm:text-left min-w-0 w-full sm:w-auto">
               <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Limit</p>
-              <p className="text-xs sm:text-base font-bold text-blue-500 mt-1 tabular-nums truncate">
+              <p className="text-[11px] sm:text-base font-bold text-blue-500 mt-1 sm:mt-1.5 tabular-nums truncate">
                 {formatCurrency(totals.totalLimit, true)}
               </p>
             </div>
           </div>
 
           {/* Terpakai */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 py-1.5 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150">
-            <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 text-rose-500 shrink-0">
-              <TrendingDown className="h-4 w-4" />
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 py-2 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150 min-w-0">
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-rose-500/10 text-rose-500 shrink-0">
+              <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
-            <div className="text-center sm:text-left min-w-0 flex-1">
+            <div className="text-center sm:text-left min-w-0 w-full sm:w-auto">
               <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Terpakai</p>
-              <p className="text-xs sm:text-base font-bold text-rose-500 mt-1 tabular-nums truncate">
+              <p className="text-[11px] sm:text-base font-bold text-rose-500 mt-1 sm:mt-1.5 tabular-nums truncate">
                 {formatCurrency(totals.totalSpent, true)}
               </p>
             </div>
           </div>
 
           {/* Sisa */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 py-1.5 px-1 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150">
-            <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 shrink-0">
-              <ArrowUpDown className="h-4 w-4" />
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 py-2 px-1 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150 min-w-0">
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 shrink-0">
+              <ArrowUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
-            <div className="text-center sm:text-left min-w-0 flex-1">
+            <div className="text-center sm:text-left min-w-0 w-full sm:w-auto">
               <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Sisa</p>
-              <p className="text-xs sm:text-base font-bold text-emerald-500 mt-1 tabular-nums truncate px-1 sm:px-0 rounded-md inline-block max-w-full bg-emerald-500/5 sm:bg-transparent">
+              <p className="text-[11px] sm:text-base font-bold text-emerald-500 mt-1 sm:mt-1.5 tabular-nums truncate block w-full sm:w-auto">
                 {formatCurrency(totals.remaining, true)}
               </p>
             </div>
           </div>
+
         </div>
 
         {/* List Anggaran */}

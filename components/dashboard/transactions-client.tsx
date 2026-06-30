@@ -269,48 +269,47 @@ export function TransactionsClient({
           </div>
 
           {/* Minimalist Net Summary Box Layout */}
-          <div className="grid grid-cols-3 gap-3 bg-[var(--card)] border border-[var(--card-border)]/50 p-2 sm:p-3.5 rounded-2xl shadow-sm/5 relative overflow-hidden">
+          {/* Highly Responsive Net Summary Box Layout */}
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-3 bg-[var(--card)] border border-[var(--card-border)]/50 p-1.5 sm:p-3.5 rounded-2xl shadow-sm/5 relative overflow-hidden">
             {/* Masuk */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 py-1.5 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150">
-              <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 shrink-0">
-                <TrendingUp className="h-4 w-4" />
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 py-2 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150 min-w-0">
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 shrink-0">
+                <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
-              <div className="text-center sm:text-left min-w-0 flex-1">
+              <div className="text-center sm:text-left min-w-0 w-full sm:w-auto">
                 <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Masuk</p>
-                <p className="text-xs sm:text-base font-bold text-emerald-500 mt-1 tabular-nums truncate">
+                <p className="text-[11px] sm:text-base font-bold text-emerald-500 mt-1 sm:mt-1.5 tabular-nums truncate">
                   {formatCurrency(stats.income, true)}
                 </p>
               </div>
             </div>
 
             {/* Keluar */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 py-1.5 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150">
-              <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 text-rose-500 shrink-0">
-                <TrendingDown className="h-4 w-4" />
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 py-2 px-1 border-r border-[var(--card-border)]/30 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150 min-w-0">
+              <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg bg-rose-500/10 text-rose-500 shrink-0">
+                <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
-              <div className="text-center sm:text-left min-w-0 flex-1">
+              <div className="text-center sm:text-left min-w-0 w-full sm:w-auto">
                 <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Keluar</p>
-                <p className="text-xs sm:text-base font-bold text-rose-500 mt-1 tabular-nums truncate">
+                <p className="text-[11px] sm:text-base font-bold text-rose-500 mt-1 sm:mt-1.5 tabular-nums truncate">
                   {formatCurrency(stats.expense, true)}
                 </p>
               </div>
             </div>
 
             {/* Net */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 py-1.5 px-1 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 py-2 px-1 group/stat hover:bg-[var(--muted)]/30 rounded-xl transition-colors duration-150 min-w-0">
               <div className={cn(
-                "hidden sm:flex h-8 w-8 items-center justify-center rounded-lg shrink-0",
+                "flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg shrink-0",
                 stats.net >= 0 ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
               )}>
-                <ArrowUpDown className="h-4 w-4" />
+                <ArrowUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
-              <div className="text-center sm:text-left min-w-0 flex-1">
+              <div className="text-center sm:text-left min-w-0 w-full sm:w-auto">
                 <p className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none">Net Bersih</p>
                 <p className={cn(
-                  "text-xs sm:text-base font-bold mt-1 tabular-nums truncate px-1 sm:px-0 rounded-md inline-block max-w-full",
-                  stats.net >= 0
-                    ? "text-emerald-500 bg-emerald-500/5 sm:bg-transparent"
-                    : "text-rose-500 bg-rose-500/5 sm:bg-transparent"
+                  "text-[11px] sm:text-base font-bold mt-1 sm:mt-1.5 tabular-nums truncate block w-full sm:w-auto",
+                  stats.net >= 0 ? "text-emerald-500" : "text-rose-500"
                 )}>
                   {stats.net > 0 ? "+" : ""}{formatCurrency(stats.net, true)}
                 </p>
