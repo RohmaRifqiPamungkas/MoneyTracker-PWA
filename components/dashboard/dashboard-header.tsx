@@ -15,11 +15,19 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { useEffect, useState } from "react";
 import { TransactionDialog } from "@/components/layout/transaction-dialog";
+import { signOutAction } from "@/lib/auth/actions";
+import type { BankAccountRow } from "@/lib/supabase/types";
 
 type DefaultType = "income" | "expense";
 
-export function DashboardHeader() {
-  const [isOnline, setIsOnline] = useState(true);
+interface DashboardHeaderProps {
+  bankAccounts: BankAccountRow[];
+}
+
+export function DashboardHeader({ bankAccounts }: DashboardHeaderProps) {
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine
+  );
   const [currentTime, setCurrentTime] = useState(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [defaultType, setDefaultType] = useState<DefaultType>("expense");
@@ -27,7 +35,6 @@ export function DashboardHeader() {
   useEffect(() => {
     const on = () => setIsOnline(true);
     const off = () => setIsOnline(false);
-    setIsOnline(navigator.onLine);
     window.addEventListener("online", on);
     window.addEventListener("offline", off);
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
@@ -119,6 +126,11 @@ export function DashboardHeader() {
               >
                 P
               </button>
+              <form action={signOutAction} className="hidden sm:block">
+                <Button variant="outline" size="sm" type="submit">
+                  Keluar
+                </Button>
+              </form>
             </div>
           </div>
         </div>
@@ -129,6 +141,7 @@ export function DashboardHeader() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         defaultType={defaultType}
+        bankAccounts={bankAccounts}
       />
     </>
   );

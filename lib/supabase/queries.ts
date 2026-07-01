@@ -64,10 +64,16 @@ export async function insertTransaction(values: {
   bank_account_id: string;
 }): Promise<TransactionRow> {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) throw new Error("Anda harus login terlebih dahulu.");
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from("transactions")
-    .insert({ id: crypto.randomUUID(), ...values })
+    .insert({ id: crypto.randomUUID(), user_id: user.id, ...values })
     .select()
     .single();
 

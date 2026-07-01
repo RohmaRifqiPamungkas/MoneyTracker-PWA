@@ -28,8 +28,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CATEGORY_META, BANK_ACCOUNTS } from "@/lib/mock-data";
+import { addTransaction } from "@/app/actions";
+import { CATEGORY_META, BANK_ACCOUNTS as MOCK_BANK_ACCOUNTS } from "@/lib/mock-data";
 import { cn, formatCurrency } from "@/lib/utils";
+import type { BankAccountRow } from "@/lib/supabase/types";
 
 /* ── Custom Category Types & Storage ─────────────────────── */
 interface CustomCategory {
@@ -79,6 +81,7 @@ interface TransactionDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   defaultType?: "income" | "expense";
+  bankAccounts?: BankAccountRow[];
 }
 
 function StepIndicator({ total, current, onBack, showBack }: { total: number; current: number; onBack: () => void; showBack: boolean }) {
@@ -120,6 +123,7 @@ export function TransactionDialog({
   open,
   onOpenChange,
   defaultType = "expense",
+  bankAccounts = [],
 }: TransactionDialogProps) {
   const [step, setStep] = useState(0); // 0: Info Awal, 1: Detail Lengkap, 2: Sukses, 3: Form Kategori Kustom (Multi-step)
   const [isLoading, setLoading] = useState(false);
@@ -207,14 +211,29 @@ export function TransactionDialog({
     if (ok) setStep(1);
   };
 
-  const onSubmit = async (_data: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 900));
+    const result = await addTransaction({
+      name: data.name,
+      amount: data.amount,
+      type: data.type,
+      category: data.category,
+      date: data.date,
+      notes: data.notes,
+      bank_account_id: data.bankAccountId,
+    });
+
     setLoading(false);
+
+    if (!result.success) {
+      alert(result.error || "Gagal menyimpan transaksi.");
+      return;
+    }
+
     setStep(2);
     setTimeout(() => {
       handleOpenChange(false);
-    }, 2400);
+    }, 1800);
   };
 
   const handleOpenChange = (v: boolean) => {
@@ -227,8 +246,19 @@ export function TransactionDialog({
     onOpenChange(v);
   };
 
+  const displayBankAccounts =
+    bankAccounts.length > 0
+      ? bankAccounts.map((account) => ({
+          id: account.id,
+          name: account.name,
+          balance: account.balance,
+          logo: account.logo,
+          gradient: account.gradient,
+        }))
+      : MOCK_BANK_ACCOUNTS;
+
   const { defaults: categoryDefaults, custom: categoryCustom } = getAllCategories();
-  const selectedBank = BANK_ACCOUNTS.find((b) => b.id === bankId);
+  const selectedBank = displayBankAccounts.find((b) => b.id === bankId);
   const isSelectedBankImgLogo = selectedBank?.logo?.startsWith("/");
 
   return (
@@ -338,7 +368,7 @@ export function TransactionDialog({
                     control={control}
                     render={({ field }) => (
                       <div className="grid grid-cols-3 gap-2">
-                        {BANK_ACCOUNTS.map((account) => {
+                        {displayBankAccounts.map((account) => {
                           const isSelected = field.value === account.id;
                           const isImgLogo = account.logo?.startsWith("/");
                           return (

@@ -7,12 +7,15 @@ export const metadata = {
 
 export default async function ProfilePage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   // Ambil metadata total jumlah baris dari masing-masing tabel di Supabase
   const [txCount, bankCount, budgetCount] = await Promise.all([
-    (supabase as any).from("transactions").select("*", { count: "exact", head: true }),
-    (supabase as any).from("bank_accounts").select("*", { count: "exact", head: true }),
-    (supabase as any).from("budget_items").select("*", { count: "exact", head: true }),
+    supabase.from("transactions").select("*", { count: "exact", head: true }),
+    supabase.from("bank_accounts").select("*", { count: "exact", head: true }),
+    supabase.from("budget_items").select("*", { count: "exact", head: true }),
   ]);
 
   const stats = {
@@ -21,5 +24,13 @@ export default async function ProfilePage() {
     budgets: budgetCount.count ?? 0,
   };
 
-  return <ProfileClient stats={stats} />;
+  return (
+    <ProfileClient
+      stats={stats}
+      user={{
+        email: user?.email ?? "",
+        name: String(user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "Pengguna"),
+      }}
+    />
+  );
 }

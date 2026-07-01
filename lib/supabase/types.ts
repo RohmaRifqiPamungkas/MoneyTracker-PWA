@@ -19,6 +19,7 @@ export type Json =
 // ── Row types ──────────────────────────────────────────────────────────────
 export interface BankAccountRow {
   id: string;
+  user_id: string;
   name: string;
   bank_name: string;
   type: "bank" | "ewallet" | "cash";
@@ -33,6 +34,7 @@ export interface BankAccountRow {
 
 export interface TransactionRow {
   id: string;
+  user_id: string;
   name: string;
   amount: number;
   type: "income" | "expense";
@@ -45,6 +47,7 @@ export interface TransactionRow {
 
 export interface BudgetItemRow {
   id: string;
+  user_id: string;
   category: string;
   label: string;
   spent: number;
@@ -55,6 +58,7 @@ export interface BudgetItemRow {
 
 export interface SavingsGoalRow {
   id: string;
+  user_id: string;
   name: string;
   target_amount: number;
   current_amount: number;
@@ -66,6 +70,7 @@ export interface SavingsGoalRow {
 
 export interface UpcomingBillRow {
   id: string;
+  user_id: string;
   name: string;
   amount: number;
   due_date: string;

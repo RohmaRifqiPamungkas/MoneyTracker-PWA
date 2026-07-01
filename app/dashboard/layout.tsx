@@ -1,22 +1,19 @@
-"use client";
+import { redirect } from "next/navigation";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { createClient } from "@/lib/supabase/server";
+import { getBankAccounts } from "@/lib/supabase/queries";
 
-import { useState } from "react";
-import { BottomNav } from "@/components/layout/bottom-nav";
-import { TransactionDialog } from "@/components/layout/transaction-dialog";
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  if (!user) {
+    redirect("/login");
+  }
 
-  return (
-    <>
-      {/* Page content – extra bottom padding so bottom nav doesn't obscure content */}
-      <div className="pb-28 lg:pb-0">{children}</div>
+  const bankAccounts = await getBankAccounts();
 
-      {/* Bottom nav (hidden on lg+) */}
-      <BottomNav onAddClick={() => setDialogOpen(true)} />
-
-      {/* Transaction modal */}
-      <TransactionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
-    </>
-  );
+  return <DashboardShell bankAccounts={bankAccounts}>{children}</DashboardShell>;
 }

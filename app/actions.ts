@@ -4,6 +4,20 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CATEGORY_META } from "@/lib/mock-data";
 
+async function getAuthenticatedUserId() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return { supabase, userId: null };
+  }
+
+  return { supabase, userId: user.id };
+}
+
 // ── Transaction Actions ──────────────────────────────────────────────────────
 
 export async function addTransaction(values: {
@@ -15,7 +29,11 @@ export async function addTransaction(values: {
   notes?: string;
   bank_account_id: string;
 }) {
-  const supabase = await createClient();
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
 
   // 1. Insert transaksi
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,6 +41,7 @@ export async function addTransaction(values: {
     .from("transactions")
     .insert({
       id: crypto.randomUUID(),
+      user_id: userId,
       name: values.name,
       amount: values.amount,
       type: values.type,
@@ -95,13 +114,18 @@ export async function addBankAccount(values: {
   logo: string;
   gradient: string[];
 }) {
-  const supabase = await createClient();
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from("bank_accounts")
     .insert({
       id: crypto.randomUUID(),
+      user_id: userId,
       name: values.name,
       bank_name: values.bank_name,
       type: values.type,
@@ -125,7 +149,11 @@ export async function addBankAccount(values: {
 // ── Delete Transaction ──────────────────────────────────────────────────────
 
 export async function removeTransaction(id: string) {
-  const supabase = await createClient();
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
 
   // Ambil data transaksi dulu untuk rollback saldo
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -193,10 +221,14 @@ export async function removeTransaction(id: string) {
 // ── Budget Actions ──────────────────────────────────────────────────────────
 
 export async function upsertBudgetItem(category: string, limit: number) {
-  const supabase = await createClient();
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
 
   // Cari label dan color dari CATEGORY_META
-  const meta = CATEGORY_META[category as any] || { label: category, color: "#94a3b8" };
+  const meta = CATEGORY_META[category] || { label: category, color: "#94a3b8" };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: existing } = await (supabase as any)
@@ -228,13 +260,17 @@ export async function upsertBudgetItem(category: string, limit: number) {
       .gte("date", start)
       .lte("date", end);
       
-    const actualSpent = (txs ?? []).reduce((sum: number, tx: any) => sum + tx.amount, 0);
+    const actualSpent = ((txs ?? []) as { amount: number }[]).reduce(
+      (sum, tx) => sum + tx.amount,
+      0
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: err } = await (supabase as any)
       .from("budget_items")
       .insert({
         id: crypto.randomUUID(),
+        user_id: userId,
         category,
         label: meta.label,
         limit,

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   Shield,
@@ -15,6 +14,7 @@ import {
   DollarSign,
   Globe,
   Loader2,
+  LogOut,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { signOutAction } from "@/lib/auth/actions";
 
 interface ProfileClientProps {
   stats: {
@@ -29,31 +30,21 @@ interface ProfileClientProps {
     bankAccounts: number;
     budgets: number;
   };
+  user: {
+    name: string;
+    email: string;
+  };
 }
 
-export function ProfileClient({ stats }: ProfileClientProps) {
-  const [isOnline, setIsOnline] = useState(true);
+export function ProfileClient({ stats, user }: ProfileClientProps) {
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine
+  );
   const [dbStatus, setDbStatus] = useState<"checking" | "connected" | "failed">("checking");
   const [testingConnection, setTestingConnection] = useState(false);
   const [cacheCleared, setCacheCleared] = useState(false);
 
-  useEffect(() => {
-    setIsOnline(navigator.onLine);
-    const goOnline = () => setIsOnline(true);
-    const goOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", goOnline);
-    window.addEventListener("offline", goOffline);
-
-    testDb();
-
-    return () => {
-      window.removeEventListener("online", goOnline);
-      window.removeEventListener("offline", goOffline);
-    };
-  }, []);
-
-  const testDb = async () => {
+  const testDb = useCallback(async () => {
     setTestingConnection(true);
     setDbStatus("checking");
     try {
@@ -67,7 +58,25 @@ export function ProfileClient({ stats }: ProfileClientProps) {
     } finally {
       setTestingConnection(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+
+    const checkConnection = window.setTimeout(() => {
+      void testDb();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(checkConnection);
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, [testDb]);
 
   const handleClearCache = async () => {
     if ("serviceWorker" in navigator) {
@@ -118,20 +127,26 @@ export function ProfileClient({ stats }: ProfileClientProps) {
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="text-sm sm:text-base font-bold text-[var(--foreground)] truncate">
-                Pamungkas
+                {user.name}
               </h2>
               <p className="text-[11px] sm:text-xs text-[var(--muted-foreground)] truncate mt-0.5 opacity-90">
-                Pamungkas@moneytracker.app &bull; PamungkasLokal
+                {user.email}
               </p>
               <div className="flex flex-wrap items-center gap-1.5 mt-2">
                 <Badge variant="outline" className="text-[9px] sm:text-[10px] py-0.5 px-2 border-emerald-500/20 text-emerald-700 dark:text-emerald-400 bg-emerald-500/5 font-semibold">
-                  Single User Mode
+                  Auth Aktif
                 </Badge>
                 <Badge variant="outline" className="text-[9px] sm:text-[10px] py-0.5 px-2 border-blue-500/20 text-blue-700 dark:text-blue-400 bg-blue-500/5 font-semibold">
                   Pro Version
                 </Badge>
               </div>
             </div>
+            <form action={signOutAction}>
+              <Button variant="outline" size="sm" type="submit" className="shrink-0">
+                <LogOut className="h-3.5 w-3.5" />
+                Keluar
+              </Button>
+            </form>
           </CardContent>
         </Card>
 
