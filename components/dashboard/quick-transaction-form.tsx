@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Loader2, PlusCircle, TrendingDown, TrendingUp, AlertCircle } from "lucide-react";
+import { CheckCircle2, Loader2, PlusCircle, TrendingDown, TrendingUp, AlertCircle, Sparkles, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,20 +16,42 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { CATEGORY_META } from "@/lib/mock-data";
 import { cn, formatCurrency } from "@/lib/utils";
 import { addTransaction } from "@/app/actions";
 import type { BankAccountRow } from "@/lib/supabase/types";
 
+interface CustomCategory {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string;
+}
+
+const STORAGE_KEY = "moneytracker_custom_categories";
+const EMOJI_OPTIONS = ["🏷️", "🎯", "🌟", "💫", "⭐", "🔥", "💎", "🎁", "🎪", "🎭", "🎨", "🎲"];
+const COLOR_OPTIONS = ["#10b981", "#6366f1", "#f59e0b", "#3b82f6", "#ec4899", "#14b8a6", "#8b5cf6", "#06b6d4", "#f97316", "#ef4444"];
+
+function loadCustomCategories(): CustomCategory[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomCategories(cats: CustomCategory[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cats));
+}
+
 const schema = z.object({
   amount: z.number().positive("Nominal harus lebih dari 0"),
   type: z.enum(["income", "expense"]),
-  category: z.enum([
-    "food", "transport", "shopping", "bills", "entertainment",
-    "health", "salary", "freelance", "investment", "other",
-  ]),
+  category: z.string().min(1, "Pilih kategori"),
   name: z.string().min(2, "Nama transaksi min. 2 karakter").max(60),
   date: z.string().min(1, "Pilih tanggal"),
   notes: z.string().max(200).optional(),
@@ -46,6 +68,11 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [rawAmount, setRawAmount] = useState("");
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [isCustomEditorOpen, setIsCustomEditorOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatEmoji, setNewCatEmoji] = useState("🏷️");
+  const [newCatColor, setNewCatColor] = useState("#10b981");
 
   const {
     register,
@@ -65,15 +92,60 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
   });
 
   const type = watch("type");
-  
-  /* ── PERBAIKAN: Variabel dipindahkan ke dalam lingkup komponen agar fungsi `watch` bekerja ── */
+  const selectedCategory = watch("category");
   const selectedAccountId = watch("bank_account_id");
   const selectedAccount = bankAccounts.find((a) => a.id === selectedAccountId);
+
+  useEffect(() => {
+    setCustomCategories(loadCustomCategories());
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCategory) return;
+
+    const defaults = type === "income" ? [...incomeCategories] : [...expenseCategories];
+    const isCustomForType = selectedCategory.startsWith(`custom_${type}_`);
+
+    if (!defaults.some((category) => category === selectedCategory) && !isCustomForType) {
+      setValue("category", "", { shouldValidate: false });
+    }
+  }, [selectedCategory, setValue, type]);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, "");
     setRawAmount(raw);
     setValue("amount", Number(raw), { shouldValidate: true });
+  };
+
+  const handleCreateCategory = () => {
+    if (!newCatName.trim()) return;
+
+    const newId = `custom_${type}_${Date.now()}`;
+    const newCategory: CustomCategory = {
+      id: newId,
+      name: newCatName.trim(),
+      emoji: newCatEmoji,
+      color: newCatColor,
+    };
+
+    const updated = [...customCategories, newCategory];
+    setCustomCategories(updated);
+    saveCustomCategories(updated);
+    setValue("category", newId, { shouldValidate: true });
+    setNewCatName("");
+    setNewCatEmoji("🏷️");
+    setNewCatColor("#10b981");
+    setIsCustomEditorOpen(false);
+  };
+
+  const handleDeleteCategory = (catId: string) => {
+    const updated = customCategories.filter((cat) => cat.id !== catId);
+    setCustomCategories(updated);
+    saveCustomCategories(updated);
+
+    if (selectedCategory === catId) {
+      setValue("category", "", { shouldValidate: true });
+    }
   };
 
   const onSubmit = async (data: FormValues) => {
@@ -108,13 +180,14 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
         });
         setRawAmount("");
       }, 2000);
-    } catch (err) {
+    } catch {
       setErrorMsg("Terjadi kesalahan jaringan. Coba lagi.");
       setIsLoading(false);
     }
   };
 
   const categoryOptions = type === "income" ? incomeCategories : expenseCategories;
+  const categoryCustom = customCategories.filter((cat) => cat.id.startsWith(`custom_${type}_`));
 
   return (
     <motion.div
@@ -238,38 +311,6 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
 
                 {/* Grid Container for Desktop optimizations */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Category */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-[var(--muted-foreground)]">Kategori</Label>
-                    <Controller
-                      name="category"
-                      control={control}
-                      render={({ field }) => (
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger className="h-10 text-sm">
-                            <SelectValue placeholder="Pilih kategori..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categoryOptions.map((cat) => {
-                              const meta = CATEGORY_META[cat];
-                              return (
-                                <SelectItem key={cat} value={cat}>
-                                  <span className="flex items-center gap-2 text-sm">
-                                    <span className="text-base leading-none">{meta.emoji}</span>
-                                    <span>{meta.label}</span>
-                                  </span>
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {errors.category && (
-                      <p className="text-[11px] text-rose-500 font-medium">{errors.category.message}</p>
-                    )}
-                  </div>
-
                   {/* Date */}
                   <div className="space-y-1.5">
                     <Label htmlFor="date" className="text-xs font-medium text-[var(--muted-foreground)]">Tanggal</Label>
@@ -278,6 +319,176 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
                       <p className="text-[11px] text-rose-500 font-medium">{errors.date.message}</p>
                     )}
                   </div>
+                </div>
+
+                {/* Category */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <Label className="text-xs font-medium text-[var(--muted-foreground)]">Kategori</Label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomEditorOpen((prev) => !prev)}
+                      className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-500"
+                    >
+                      <PlusCircle className="h-3 w-3" />
+                      {isCustomEditorOpen ? "Tutup Custom" : "Custom"}
+                    </button>
+                  </div>
+
+                  <Controller
+                    name="category"
+                    control={control}
+                    render={({ field }) => (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-3 gap-2">
+                          {categoryOptions.map((cat) => {
+                            const meta = CATEGORY_META[cat];
+                            const isSelected = field.value === cat;
+
+                            return (
+                              <button
+                                key={cat}
+                                type="button"
+                                onClick={() => field.onChange(cat)}
+                                className={cn(
+                                  "flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-center transition-all",
+                                  isSelected
+                                    ? "border-emerald-500 bg-emerald-500/5 font-bold text-emerald-600 shadow-sm"
+                                    : "border-[var(--card-border)] bg-[var(--muted)]/40 text-[var(--muted-foreground)] hover:bg-[var(--muted)]/75"
+                                )}
+                              >
+                                <span className="text-base leading-none">{meta?.emoji}</span>
+                                <span className="w-full truncate px-0.5 text-[10px] leading-tight">{meta?.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {categoryCustom.length > 0 && (
+                          <div className="grid grid-cols-3 gap-2 border-t border-[var(--card-border)]/30 pt-2">
+                            {categoryCustom.map((cat) => {
+                              const isSelected = field.value === cat.id;
+                              return (
+                                <button
+                                  key={cat.id}
+                                  type="button"
+                                  onClick={() => field.onChange(cat.id)}
+                                  className={cn(
+                                    "group relative flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-center transition-all",
+                                    isSelected
+                                      ? "font-bold shadow-sm"
+                                      : "border-[var(--card-border)] bg-[var(--muted)]/40 text-[var(--muted-foreground)] hover:bg-[var(--muted)]/75"
+                                  )}
+                                  style={
+                                    isSelected
+                                      ? { borderColor: cat.color, backgroundColor: `${cat.color}10`, color: cat.color }
+                                      : undefined
+                                  }
+                                >
+                                  <span className="text-base leading-none">{cat.emoji}</span>
+                                  <span className="w-full truncate px-0.5 text-[10px] leading-tight">{cat.name}</span>
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleDeleteCategory(cat.id);
+                                    }}
+                                    className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                  >
+                                    <X className="h-2.5 w-2.5" />
+                                  </button>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  />
+
+                  {errors.category && (
+                    <p className="text-[11px] text-rose-500 font-medium">{errors.category.message}</p>
+                  )}
+
+                  <AnimatePresence initial={false}>
+                    {isCustomEditorOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--muted)]/20"
+                      >
+                        <div className="space-y-3 p-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="custom-category-name" className="text-[11px] font-medium text-[var(--muted-foreground)]">
+                              Nama kategori baru
+                            </Label>
+                            <Input
+                              id="custom-category-name"
+                              value={newCatName}
+                              onChange={(event) => setNewCatName(event.target.value)}
+                              placeholder="Mis. Nongkrong, Bonus, Hadiah"
+                              className="h-10 text-sm"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">Emoji</Label>
+                            <div className="grid grid-cols-6 gap-2">
+                              {EMOJI_OPTIONS.map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => setNewCatEmoji(emoji)}
+                                  className={cn(
+                                    "flex h-9 items-center justify-center rounded-lg border text-base transition-all",
+                                    newCatEmoji === emoji
+                                      ? "border-emerald-500 bg-emerald-500/10"
+                                      : "border-[var(--card-border)] bg-[var(--card)]"
+                                  )}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">Warna</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {COLOR_OPTIONS.map((color) => (
+                                <button
+                                  key={color}
+                                  type="button"
+                                  onClick={() => setNewCatColor(color)}
+                                  className={cn(
+                                    "h-7 w-7 rounded-full border-2 transition-transform",
+                                    newCatColor === color
+                                      ? "scale-110 border-[var(--foreground)]"
+                                      : "border-white/50"
+                                  )}
+                                  style={{ backgroundColor: color }}
+                                  aria-label={`Pilih warna ${color}`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between rounded-xl border border-[var(--card-border)]/40 bg-[var(--card)] px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">{newCatEmoji}</span>
+                              <span className="text-sm font-semibold" style={{ color: newCatColor }}>
+                                {newCatName || "Preview kategori"}
+                              </span>
+                            </div>
+                            <Button type="button" size="sm" onClick={handleCreateCategory} disabled={!newCatName.trim()}>
+                              Simpan
+                            </Button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Bank Account */}
