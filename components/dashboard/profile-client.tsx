@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { signOutAction } from "@/lib/auth/actions";
+import { PasskeySettingsCard } from "@/components/auth/passkey-settings-card";
 
 interface ProfileClientProps {
   stats: {
@@ -165,6 +166,8 @@ export function ProfileClient({ stats, user }: ProfileClientProps) {
             <p className="text-base sm:text-xl font-bold text-[var(--foreground)] mt-1 tabular-nums">{stats.budgets}</p>
           </Card>
         </div>
+
+        <PasskeySettingsCard />
 
         {/* Supabase Diagnostic */}
         <Card className="shadow-sm border-[var(--card-border)]">

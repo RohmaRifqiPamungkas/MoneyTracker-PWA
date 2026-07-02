@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Loader2, LogIn, UserPlus } from "lucide-react";
+import { Fingerprint, Loader2, LogIn, UserPlus } from "lucide-react";
 import { signInAction, signUpAction, type AuthFormState } from "@/lib/auth/actions";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,8 +16,30 @@ export function AuthForm() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [loginState, loginAction, loginPending] = useActionState(signInAction, initialState);
   const [registerState, registerAction, registerPending] = useActionState(signUpAction, initialState);
+  const [passkeyPending, setPasskeyPending] = useState(false);
+  const [passkeyMessage, setPasskeyMessage] = useState<AuthFormState>({});
   const state = mode === "login" ? loginState : registerState;
   const pending = mode === "login" ? loginPending : registerPending;
+  const supportsPasskey =
+    typeof window !== "undefined" &&
+    window.isSecureContext &&
+    typeof window.PublicKeyCredential !== "undefined";
+
+  const handlePasskeyLogin = async () => {
+    setPasskeyPending(true);
+    setPasskeyMessage({});
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPasskey();
+
+    if (error) {
+      setPasskeyMessage({ error: error.message });
+      setPasskeyPending(false);
+      return;
+    }
+
+    window.location.href = "/dashboard";
+  };
 
   return (
     <Card className="w-full max-w-md border-[var(--card-border)] shadow-xl shadow-black/5">
@@ -58,6 +81,37 @@ export function AuthForm() {
         </div>
 
         <form action={mode === "login" ? loginAction : registerAction} className="space-y-4">
+          {mode === "login" && (
+            <div className="space-y-3">
+              <Button
+                type="button"
+                className="h-11 w-full"
+                disabled={!supportsPasskey || passkeyPending}
+                onClick={() => void handlePasskeyLogin()}
+              >
+                {passkeyPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Fingerprint className="h-4 w-4" />
+                )}
+                Masuk dengan Face ID
+              </Button>
+              <p className="text-center text-xs text-[var(--muted-foreground)]">
+                Face ID memakai passkey. Kalau belum aktif, Anda tetap bisa masuk dengan email dan password.
+              </p>
+              <div className="relative py-1">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[var(--card-border)]/60" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-[var(--card)] px-2 text-[11px] text-[var(--muted-foreground)]">
+                    atau gunakan password
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {mode === "register" && (
             <div className="space-y-1.5">
               <Label htmlFor="name">Nama</Label>
@@ -81,14 +135,14 @@ export function AuthForm() {
             />
           </div>
 
-          {state.error && (
+          {(passkeyMessage.error || state.error) && (
             <p className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-600">
-              {state.error}
+              {passkeyMessage.error || state.error}
             </p>
           )}
-          {state.success && (
+          {(passkeyMessage.success || state.success) && (
             <p className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-700">
-              {state.success}
+              {passkeyMessage.success || state.success}
             </p>
           )}
 
