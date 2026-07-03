@@ -37,16 +37,26 @@ create table if not exists public.transactions (
   user_id         uuid        not null references auth.users(id) on delete cascade,
   name            text        not null,
   amount          numeric     not null check (amount > 0),
-  type            text        not null check (type in ('income', 'expense')),
+  type            text        not null check (type in ('income', 'expense', 'transfer')),
   category        text        not null,
   date            date        not null,
   notes           text,
   bank_account_id text        not null,
+  transfer_account_id text,
   created_at      timestamptz not null default now(),
   constraint transactions_bank_account_user_fk
     foreign key (bank_account_id, user_id)
     references public.bank_accounts(id, user_id)
-    on delete cascade
+    on delete cascade,
+  constraint transactions_transfer_account_user_fk
+    foreign key (transfer_account_id, user_id)
+    references public.bank_accounts(id, user_id)
+    on delete cascade,
+  constraint transactions_transfer_shape_check
+    check (
+      (type = 'transfer' and transfer_account_id is not null and transfer_account_id <> bank_account_id)
+      or (type in ('income', 'expense') and transfer_account_id is null)
+    )
 );
 
 -- ── Budget Items ─────────────────────────────────────────────────────────
@@ -90,9 +100,23 @@ create table if not exists public.upcoming_bills (
 -- Existing-database migration helpers. These are no-ops on a fresh database.
 alter table public.bank_accounts add column if not exists user_id uuid references auth.users(id) on delete cascade;
 alter table public.transactions add column if not exists user_id uuid references auth.users(id) on delete cascade;
+alter table public.transactions add column if not exists transfer_account_id text;
 alter table public.budget_items add column if not exists user_id uuid references auth.users(id) on delete cascade;
 alter table public.savings_goals add column if not exists user_id uuid references auth.users(id) on delete cascade;
 alter table public.upcoming_bills add column if not exists user_id uuid references auth.users(id) on delete cascade;
+
+alter table public.transactions drop constraint if exists transactions_type_check;
+alter table public.transactions
+  add constraint transactions_type_check
+  check (type in ('income', 'expense', 'transfer'));
+
+alter table public.transactions drop constraint if exists transactions_transfer_shape_check;
+alter table public.transactions
+  add constraint transactions_transfer_shape_check
+  check (
+    (type = 'transfer' and transfer_account_id is not null and transfer_account_id <> bank_account_id)
+    or (type in ('income', 'expense') and transfer_account_id is null)
+  );
 
 do $$
 begin
@@ -112,6 +136,16 @@ begin
       references public.bank_accounts(id, user_id)
       on delete cascade;
   end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'transactions_transfer_account_user_fk'
+  ) then
+    alter table public.transactions
+      add constraint transactions_transfer_account_user_fk
+      foreign key (transfer_account_id, user_id)
+      references public.bank_accounts(id, user_id)
+      on delete cascade;
+  end if;
 end $$;
 
 alter table public.budget_items drop constraint if exists budget_items_category_key;
@@ -123,6 +157,7 @@ create index if not exists idx_bank_accounts_user        on public.bank_accounts
 create index if not exists idx_transactions_user_date    on public.transactions(user_id, date desc);
 create index if not exists idx_transactions_user_type    on public.transactions(user_id, type);
 create index if not exists idx_transactions_bank_account on public.transactions(bank_account_id);
+create index if not exists idx_transactions_transfer_account on public.transactions(transfer_account_id);
 create index if not exists idx_budget_items_user         on public.budget_items(user_id);
 create index if not exists idx_savings_goals_user_date   on public.savings_goals(user_id, target_date asc);
 create index if not exists idx_upcoming_bills_user_due   on public.upcoming_bills(user_id, due_date asc);

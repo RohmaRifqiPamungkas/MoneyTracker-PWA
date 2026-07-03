@@ -1,4 +1,4 @@
-export type TransactionType = "income" | "expense";
+export type TransactionType = "income" | "expense" | "transfer";
 
 export type Category =
   | "food"
@@ -10,6 +10,7 @@ export type Category =
   | "salary"
   | "freelance"
   | "investment"
+  | "transfer"
   | "other";
 
 export type BankAccountType = "bank" | "ewallet" | "cash";
@@ -45,6 +46,7 @@ export interface Transaction {
   date: string;
   notes?: string;
   bankAccountId: string;
+  transferAccountId?: string | null;
 }
 
 export interface MonthlyData {

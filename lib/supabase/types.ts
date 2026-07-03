@@ -37,11 +37,12 @@ export interface TransactionRow {
   user_id: string;
   name: string;
   amount: number;
-  type: "income" | "expense";
+  type: "income" | "expense" | "transfer";
   category: string;
   date: string;
   notes: string | null;
   bank_account_id: string;
+  transfer_account_id: string | null;
   created_at: string;
 }
 
