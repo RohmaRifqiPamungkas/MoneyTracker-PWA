@@ -78,6 +78,21 @@
 
 * {
   box-sizing: border-box;
+  /* Nonaktifkan pinch-to-zoom dan double-tap zoom */
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+}
+
+html {
+  /* Lock viewport - tidak bisa di-zoom */
+  touch-action: manipulation;
+}
+
+/* Cegah iOS zoom saat focus input (iOS akan zoom jika font-size < 16px) */
+input, textarea, select {
+  font-size: 16px !important;
 }
 
 body {
@@ -86,6 +101,8 @@ body {
   font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Cegah overscroll/overshoot yang bisa trigger zoom-like effect */
+  overscroll-behavior: none;
 }
 
 .glass-card {
