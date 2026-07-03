@@ -190,6 +190,7 @@ export const CATEGORY_META: Record<string, { label: string; emoji: string; color
   salary: { label: "Gaji", emoji: "💰", color: "#10b981" },
   freelance: { label: "Freelance", emoji: "💼", color: "#8b5cf6" },
   investment: { label: "Investasi", emoji: "📈", color: "#06b6d4" },
+  transfer: { label: "Transfer Antar Rekening", emoji: "🔄", color: "#0f766e" },
   relationship: { label: "Pacaran / Pasangan", emoji: "👩‍❤️‍👨", color: "#f43f5e" }, 
   hobby: { label: "Hobi & Kreatif", emoji: "🎨", color: "#a855f7" },
   groceries: { label: "Belanja Bulanan", emoji: "🛒", color: "#22c55e" },
