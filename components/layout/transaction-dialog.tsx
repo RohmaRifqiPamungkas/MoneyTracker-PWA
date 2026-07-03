@@ -11,6 +11,7 @@ import {
   PlusCircle,
   TrendingDown,
   TrendingUp,
+  ArrowRightLeft,
   Wallet,
   ArrowRight,
   ArrowLeft,
@@ -28,7 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { addTransaction } from "@/app/actions";
+import { addTransaction, createTransferTransaction } from "@/app/actions";
 import { CATEGORY_META, BANK_ACCOUNTS as MOCK_BANK_ACCOUNTS } from "@/lib/mock-data";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { BankAccountRow } from "@/lib/supabase/types";
@@ -62,15 +63,44 @@ function saveCustomCategories(cats: CustomCategory[]) {
 }
 
 /* ── Zod schema ─────────────────────────────────────────── */
-const schema = z.object({
-  amount: z.number().positive("Nominal harus lebih dari 0"),
-  type: z.enum(["income", "expense"]),
-  bankAccountId: z.string().min(1, "Pilih rekening"),
-  category: z.string().min(1, "Pilih kategori"),
-  name: z.string().min(2, "Min. 2 karakter").max(60),
-  date: z.string().min(1, "Pilih tanggal"),
-  notes: z.string().max(200).optional(),
-});
+const schema = z
+  .object({
+    amount: z.number().positive("Nominal harus lebih dari 0"),
+    type: z.enum(["income", "expense", "transfer"]),
+    bankAccountId: z.string().min(1, "Pilih rekening asal"),
+    transferAccountId: z.string().optional(),
+    category: z.string(),
+    name: z.string().min(2, "Min. 2 karakter").max(60),
+    date: z.string().min(1, "Pilih tanggal"),
+    notes: z.string().max(200).optional(),
+  })
+  .superRefine((values, ctx) => {
+    if (values.type !== "transfer" && !values.category) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["category"],
+        message: "Pilih kategori",
+      });
+    }
+
+    if (values.type === "transfer") {
+      if (!values.transferAccountId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["transferAccountId"],
+          message: "Pilih rekening tujuan",
+        });
+      }
+
+      if (values.transferAccountId && values.transferAccountId === values.bankAccountId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["transferAccountId"],
+          message: "Rekening tujuan harus berbeda",
+        });
+      }
+    }
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -80,7 +110,7 @@ const expenseCategories = ["food", "transport", "shopping", "bills", "entertainm
 interface TransactionDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  defaultType?: "income" | "expense";
+  defaultType?: "income" | "expense" | "transfer";
   bankAccounts?: BankAccountRow[];
 }
 
@@ -156,11 +186,13 @@ export function TransactionDialog({
     defaultValues: {
       type: defaultType,
       date: new Date().toISOString().split("T")[0],
+      transferAccountId: "",
     },
   });
 
   const type = watch("type");
   const bankId = watch("bankAccountId");
+  const transferBankId = watch("transferAccountId");
 
   // Pisahkan kategori bawaan dan kustom berdasarkan tipe transaksi aktif
   const getAllCategories = () => {
@@ -206,22 +238,43 @@ export function TransactionDialog({
     setValue("amount", Number(raw), { shouldValidate: !!raw });
   };
 
+  useEffect(() => {
+    if (type === "transfer") {
+      setValue("category", "transfer", { shouldValidate: false });
+      return;
+    }
+  }, [setValue, type]);
+
   const handleNextStep = async () => {
-    const ok = await trigger(["amount", "bankAccountId"]);
+    const fields =
+      type === "transfer"
+        ? ["amount", "bankAccountId", "transferAccountId"] as const
+        : ["amount", "bankAccountId"] as const;
+    const ok = await trigger(fields);
     if (ok) setStep(1);
   };
 
   const onSubmit = async (data: FormValues) => {
     setLoading(true);
-    const result = await addTransaction({
-      name: data.name,
-      amount: data.amount,
-      type: data.type,
-      category: data.category,
-      date: data.date,
-      notes: data.notes,
-      bank_account_id: data.bankAccountId,
-    });
+    const result =
+      data.type === "transfer"
+        ? await createTransferTransaction({
+            name: data.name,
+            amount: data.amount,
+            date: data.date,
+            notes: data.notes,
+            from_bank_account_id: data.bankAccountId,
+            to_bank_account_id: data.transferAccountId || "",
+          })
+        : await addTransaction({
+            name: data.name,
+            amount: data.amount,
+            type: data.type,
+            category: data.category,
+            date: data.date,
+            notes: data.notes,
+            bank_account_id: data.bankAccountId,
+          });
 
     setLoading(false);
 
@@ -238,7 +291,7 @@ export function TransactionDialog({
 
   const handleOpenChange = (v: boolean) => {
     if (!v) {
-      reset({ type: defaultType, date: new Date().toISOString().split("T")[0] });
+      reset({ type: defaultType, date: new Date().toISOString().split("T")[0], transferAccountId: "" });
       setRawAmount("");
       setNewCatName("");
       setStep(0);
@@ -259,7 +312,9 @@ export function TransactionDialog({
 
   const { defaults: categoryDefaults, custom: categoryCustom } = getAllCategories();
   const selectedBank = displayBankAccounts.find((b) => b.id === bankId);
+  const selectedTransferBank = displayBankAccounts.find((b) => b.id === transferBankId);
   const isSelectedBankImgLogo = selectedBank?.logo?.startsWith("/");
+  const isSelectedTransferBankImgLogo = selectedTransferBank?.logo?.startsWith("/");
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -302,14 +357,23 @@ export function TransactionDialog({
                 <div className="space-y-1 px-2">
                   <p className="text-base font-bold text-[var(--foreground)]">Transaksi Berhasil Disimpan!</p>
                   <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-                    Catatan {type === "income" ? "pemasukan" : "pengeluaran"}{" "}
+                    Catatan {type === "income" ? "pemasukan" : type === "transfer" ? "transfer" : "pengeluaran"}{" "}
                     <span className="font-bold text-[var(--foreground)] tabular-nums">
                       {formatCurrency(Number(rawAmount))}
                     </span>{" "}
-                    telah tercatat pada dompet{" "}
-                    <span className="font-bold text-[var(--foreground)]">
-                      {selectedBank?.name}
-                    </span>
+                    {type === "transfer" ? (
+                      <>
+                        berhasil dipindahkan dari{" "}
+                        <span className="font-bold text-[var(--foreground)]">{selectedBank?.name}</span>
+                        {" "}ke{" "}
+                        <span className="font-bold text-[var(--foreground)]">{selectedTransferBank?.name}</span>
+                      </>
+                    ) : (
+                      <>
+                        telah tercatat pada dompet{" "}
+                        <span className="font-bold text-[var(--foreground)]">{selectedBank?.name}</span>
+                      </>
+                    )}
                   </p>
                 </div>
               </motion.div>
@@ -332,9 +396,10 @@ export function TransactionDialog({
                   name="type"
                   control={control}
                   render={({ field }) => (
-                    <div className="flex rounded-xl bg-[var(--muted)]/60 p-1 gap-1 border border-[var(--card-border)]/20">
-                      <TypeButton active={field.value === "income"} onClick={() => field.onChange("income")} icon={<TrendingUp className="h-4 w-4" />} label="Pemasukan" activeClass="text-emerald-600 dark:text-emerald-400 bg-[var(--card)] border border-[var(--card-border)]/40 shadow-sm" />
-                      <TypeButton active={field.value === "expense"} onClick={() => field.onChange("expense")} icon={<TrendingDown className="h-4 w-4" />} label="Pengeluaran" activeClass="text-rose-600 dark:text-rose-400 bg-[var(--card)] border border-[var(--card-border)]/40 shadow-sm" />
+                    <div className="grid grid-cols-3 gap-2 rounded-[1.35rem] border border-[var(--card-border)]/25 bg-[var(--muted)]/50 p-2">
+                      <TypeButton active={field.value === "income"} onClick={() => field.onChange("income")} icon={<TrendingUp className="h-4 w-4" />} label={<><span className="block">Uang</span><span className="block">Masuk</span></>} activeClass="text-emerald-600 dark:text-emerald-400 bg-[var(--card)] border border-[var(--card-border)]/40 shadow-sm" />
+                      <TypeButton active={field.value === "expense"} onClick={() => field.onChange("expense")} icon={<TrendingDown className="h-4 w-4" />} label={<><span className="block">Uang</span><span className="block">Keluar</span></>} activeClass="text-rose-600 dark:text-rose-400 bg-[var(--card)] border border-[var(--card-border)]/40 shadow-sm" />
+                      <TypeButton active={field.value === "transfer"} onClick={() => field.onChange("transfer")} icon={<ArrowRightLeft className="h-4 w-4" />} label={<><span className="block">Pindah</span><span className="block">Dana</span></>} activeClass="text-teal-600 dark:text-teal-400 bg-[var(--card)] border border-[var(--card-border)]/40 shadow-sm" />
                     </div>
                   )}
                 />
@@ -362,7 +427,9 @@ export function TransactionDialog({
 
                 {/* Bank Grid View */}
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-[var(--muted-foreground)]">Pilih Dompet / Rekening</Label>
+                  <Label className="text-xs font-semibold text-[var(--muted-foreground)]">
+                    {type === "transfer" ? "Pilih Rekening Asal" : "Pilih Dompet / Rekening"}
+                  </Label>
                   <Controller
                     name="bankAccountId"
                     control={control}
@@ -415,6 +482,61 @@ export function TransactionDialog({
                   )}
                 </div>
 
+                {type === "transfer" && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-[var(--muted-foreground)]">Pilih Rekening Tujuan</Label>
+                    <Controller
+                      name="transferAccountId"
+                      control={control}
+                      render={({ field }) => (
+                        <div className="grid grid-cols-2 gap-2">
+                          {displayBankAccounts
+                            .filter((account) => account.id !== bankId)
+                            .map((account) => {
+                              const isSelected = field.value === account.id;
+                              const isImgLogo = account.logo?.startsWith("/");
+                              return (
+                                <button
+                                  key={account.id}
+                                  type="button"
+                                  onClick={() => field.onChange(account.id)}
+                                  className={cn(
+                                    "relative flex items-center gap-2 rounded-2xl border px-3 py-3 text-left transition-all duration-150 select-none cursor-pointer min-h-[68px]",
+                                    isSelected
+                                      ? "border-teal-500 bg-teal-500/8 shadow-sm"
+                                      : "border-[var(--card-border)] bg-[var(--muted)]/25 hover:bg-[var(--muted)]/60"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--card-border)]/20 overflow-hidden",
+                                    isSelected ? "bg-white shadow-sm" : "bg-[var(--card)]"
+                                  )}>
+                                    {isImgLogo ? (
+                                      <img src={account.logo} alt={account.name} className="max-h-6 max-w-7 object-contain" />
+                                    ) : (
+                                      <span className="text-lg leading-none">{account.logo}</span>
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className={cn("truncate text-xs font-bold", isSelected ? "text-teal-700 dark:text-teal-300" : "text-[var(--foreground)]")}>
+                                      {account.name}
+                                    </p>
+                                    <p className="mt-0.5 truncate text-[10px] text-[var(--muted-foreground)] tabular-nums">
+                                      {formatCurrency(account.balance, true)}
+                                    </p>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                        </div>
+                      )}
+                    />
+                    {errors.transferAccountId && (
+                      <p className="text-[11px] text-rose-500 font-medium">{errors.transferAccountId.message}</p>
+                    )}
+                  </div>
+                )}
+
                 {/* Active Wallet Details Anchor banner */}
                 <div className="min-h-[50px]">
                   <AnimatePresence mode="wait">
@@ -441,7 +563,7 @@ export function TransactionDialog({
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-semibold text-[var(--foreground)] truncate">{selectedBank.name}</p>
                           <p className="text-[10px] text-[var(--muted-foreground)] font-medium mt-0.5 tabular-nums">
-                            Sisa Saldo Saat Ini: {formatCurrency(selectedBank.balance, true)}
+                            {type === "transfer" ? "Saldo Rekening Asal" : "Sisa Saldo Saat Ini"}: {formatCurrency(selectedBank.balance, true)}
                           </p>
                         </div>
                       </motion.div>
@@ -449,11 +571,44 @@ export function TransactionDialog({
                   </AnimatePresence>
                 </div>
 
+                {type === "transfer" && selectedTransferBank && (
+                  <div className="rounded-2xl border border-teal-500/15 bg-teal-500/5 p-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm border border-[var(--card-border)]/10 overflow-hidden",
+                          isSelectedTransferBankImgLogo ? "bg-white p-1 shadow-sm" : ""
+                        )}
+                        style={!isSelectedTransferBankImgLogo ? { background: `linear-gradient(135deg, ${selectedTransferBank.gradient[0]}20, ${selectedTransferBank.gradient[1]}10)` } : undefined}
+                      >
+                        {isSelectedTransferBankImgLogo ? (
+                          <img src={selectedTransferBank.logo} alt={selectedTransferBank.name} className="max-h-full max-w-full object-contain" />
+                        ) : (
+                          selectedTransferBank.logo
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold text-[var(--foreground)]">{selectedTransferBank.name}</p>
+                        <p className="mt-0.5 text-[10px] font-medium text-[var(--muted-foreground)] tabular-nums">
+                          Saldo Rekening Tujuan: {formatCurrency(selectedTransferBank.balance, true)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <Button
                   type="button"
                   size="lg"
                   onClick={handleNextStep}
-                  className="w-full h-11 text-xs font-bold rounded-xl gap-1.5 mt-2 shadow-sm text-white bg-emerald-600 hover:bg-emerald-500 cursor-pointer"
+                  className={cn(
+                    "w-full h-11 text-xs font-bold rounded-2xl gap-1.5 mt-2 shadow-sm text-white cursor-pointer",
+                    type === "income"
+                      ? "bg-emerald-600 hover:bg-emerald-500"
+                      : type === "transfer"
+                        ? "bg-teal-600 hover:bg-teal-500"
+                        : "bg-rose-600 hover:bg-rose-500"
+                  )}
                 >
                   <span>Lanjut Isi Detail</span>
                   <ArrowRight className="h-4 w-4" />
@@ -487,7 +642,8 @@ export function TransactionDialog({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-medium text-[var(--muted-foreground)]">
-                      {type === "income" ? "Rencana Masuk" : "Rencana Keluar"} &bull; {selectedBank?.name}
+                      {type === "income" ? "Rencana Masuk" : type === "transfer" ? "Rencana Transfer" : "Rencana Keluar"} &bull; {selectedBank?.name}
+                      {type === "transfer" && selectedTransferBank ? ` -> ${selectedTransferBank.name}` : ""}
                     </p>
                     <p className="text-sm font-bold text-[var(--foreground)] tabular-nums mt-0.5">
                       {formatCurrency(Number(rawAmount))}
@@ -508,6 +664,7 @@ export function TransactionDialog({
                 </div>
 
                 {/* Category Grid Selection */}
+                {type !== "transfer" && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs font-semibold text-[var(--muted-foreground)]">Pilih Kategori</Label>
@@ -593,9 +750,10 @@ export function TransactionDialog({
                   />
                   {errors.category && <p className="text-[11px] text-rose-500 font-medium">{errors.category.message}</p>}
                 </div>
+                )}
 
                 {/* Responsive Date + Notes Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="d-date" className="text-xs font-semibold text-[var(--muted-foreground)]">Tanggal</Label>
                     <Input id="d-date" type="date" className="h-10 text-sm rounded-xl" {...register("date")} />
@@ -613,14 +771,18 @@ export function TransactionDialog({
                   size="lg"
                   disabled={isLoading}
                   className={cn(
-                    "w-full h-11 text-xs font-bold rounded-xl gap-1.5 mt-2 text-white cursor-pointer shadow-sm transition-all",
-                    type === "income" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-rose-600 hover:bg-rose-500"
+                    "w-full h-11 text-xs font-bold rounded-2xl gap-1.5 mt-2 text-white cursor-pointer shadow-sm transition-all",
+                    type === "income"
+                      ? "bg-emerald-600 hover:bg-emerald-500"
+                      : type === "transfer"
+                        ? "bg-teal-600 hover:bg-teal-500"
+                        : "bg-rose-600 hover:bg-rose-500"
                   )}
                 >
                   {isLoading ? (
                     <><Loader2 className="h-4 w-4 animate-spin" /> <span>Sedang Menyimpan…</span></>
                   ) : (
-                    <><PlusCircle className="h-4 w-4" /> <span>Simpan Transaksi</span></>
+                    <>{type === "transfer" ? <ArrowRightLeft className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />} <span>{type === "transfer" ? "Simpan Transfer" : "Simpan Transaksi"}</span></>
                   )}
                 </Button>
               </motion.form>
@@ -728,18 +890,19 @@ export function TransactionDialog({
 }
 
 function TypeButton({ active, onClick, icon, label, activeClass }: {
-  active: boolean; onClick: () => void; icon: React.ReactNode; label: string; activeClass: string;
+  active: boolean; onClick: () => void; icon: React.ReactNode; label: React.ReactNode; activeClass: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs sm:text-sm font-semibold transition-all duration-150 select-none cursor-pointer",
-        active ? `${activeClass}` : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+        "flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-3 text-[11px] sm:min-h-[56px] sm:flex-row sm:gap-2 sm:px-3 sm:text-sm font-semibold transition-all duration-150 select-none cursor-pointer",
+        active ? `${activeClass}` : "bg-transparent text-[var(--muted-foreground)] hover:bg-[var(--card)]/45 hover:text-[var(--foreground)]"
       )}
     >
-      {icon}<span>{label}</span>
+      <span className="shrink-0">{icon}</span>
+      <span className="text-center leading-[1.1]">{label}</span>
     </button>
   );
 }

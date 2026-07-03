@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ChevronLeft, ChevronRight, Inbox, TrendingUp, TrendingDown, ArrowUpDown, Trash2 } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Inbox, TrendingUp, TrendingDown, ArrowUpDown, ArrowRightLeft, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -100,6 +100,9 @@ export function RecentTransactions({
                   <SelectItem value="expense">
                     <span className="flex items-center gap-1.5"><TrendingDown className="h-3 w-3 text-rose-500" /> Keluar</span>
                   </SelectItem>
+                  <SelectItem value="transfer">
+                    <span className="flex items-center gap-1.5"><ArrowRightLeft className="h-3 w-3 text-teal-600" /> Transfer</span>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -125,6 +128,7 @@ export function RecentTransactions({
                   paginated.map((tx, i) => {
                     const catMeta = CATEGORY_META[tx.category as any];
                     const bank    = BANK_MAP[tx.bank_account_id];
+                    const transferBank = tx.transfer_account_id ? BANK_MAP[tx.transfer_account_id] : null;
 
                     return (
                       <motion.div
@@ -151,7 +155,9 @@ export function RecentTransactions({
                               {tx.name}
                             </p>
                             <p className="text-[10px] sm:text-[11px] text-[var(--muted-foreground)] mt-0.5 truncate font-medium">
-                              {catMeta?.label}{bank ? ` &bull; ${bank.name}` : ""} &bull; {formatDate(tx.date, "dd MMM")}
+                              {catMeta?.label}
+                              {bank ? ` • ${tx.type === "transfer" && transferBank ? `${bank.name} -> ${transferBank.name}` : bank.name}` : ""}
+                              {` • ${formatDate(tx.date, "dd MMM")}`}
                             </p>
                           </div>
                         </div>
@@ -160,10 +166,11 @@ export function RecentTransactions({
                         <div className="flex items-center gap-2 shrink-0">
                           <span
                             className={`text-xs sm:text-sm font-bold tabular-nums ${
-                              tx.type === "income" ? "text-emerald-500" : "text-rose-500"
+                              tx.type === "income" ? "text-emerald-500" : tx.type === "transfer" ? "text-teal-600" : "text-rose-500"
                             }`}
                           >
-                            {tx.type === "income" ? "+" : "−"}
+                            {tx.type === "transfer" ? "" : tx.type === "income" ? "+" : "−"}
+                            {tx.type === "transfer" ? <ArrowRightLeft className="mr-1 inline h-3.5 w-3.5" /> : null}
                             {formatCurrency(tx.amount, true)}
                           </span>
                           

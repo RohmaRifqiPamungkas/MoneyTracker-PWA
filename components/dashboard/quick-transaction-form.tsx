@@ -5,7 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Loader2, PlusCircle, TrendingDown, TrendingUp, AlertCircle, Sparkles, X } from "lucide-react";
+import { CheckCircle2, Loader2, PlusCircle, TrendingDown, TrendingUp, AlertCircle, Sparkles, X, ArrowRightLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,10 +16,11 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { CATEGORY_META } from "@/lib/mock-data";
 import { cn, formatCurrency } from "@/lib/utils";
-import { addTransaction } from "@/app/actions";
+import { addTransaction, createTransferTransaction } from "@/app/actions";
 import type { BankAccountRow } from "@/lib/supabase/types";
 
 interface CustomCategory {
@@ -48,15 +49,44 @@ function saveCustomCategories(cats: CustomCategory[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cats));
 }
 
-const schema = z.object({
-  amount: z.number().positive("Nominal harus lebih dari 0"),
-  type: z.enum(["income", "expense"]),
-  category: z.string().min(1, "Pilih kategori"),
-  name: z.string().min(2, "Nama transaksi min. 2 karakter").max(60),
-  date: z.string().min(1, "Pilih tanggal"),
-  notes: z.string().max(200).optional(),
-  bank_account_id: z.string().min(1, "Pilih rekening"),
-});
+const schema = z
+  .object({
+    amount: z.number().positive("Nominal harus lebih dari 0"),
+    type: z.enum(["income", "expense", "transfer"]),
+    category: z.string(),
+    name: z.string().min(2, "Nama transaksi min. 2 karakter").max(60),
+    date: z.string().min(1, "Pilih tanggal"),
+    notes: z.string().max(200).optional(),
+    bank_account_id: z.string().min(1, "Pilih rekening asal"),
+    transfer_account_id: z.string().optional(),
+  })
+  .superRefine((values, ctx) => {
+    if (values.type !== "transfer" && !values.category) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["category"],
+        message: "Pilih kategori",
+      });
+    }
+
+    if (values.type === "transfer") {
+      if (!values.transfer_account_id) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["transfer_account_id"],
+          message: "Pilih rekening tujuan",
+        });
+      }
+
+      if (values.transfer_account_id && values.transfer_account_id === values.bank_account_id) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["transfer_account_id"],
+          message: "Rekening tujuan harus berbeda",
+        });
+      }
+    }
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -88,19 +118,28 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
       type: "expense",
       date: new Date().toISOString().split("T")[0],
       bank_account_id: bankAccounts[0]?.id ?? "",
+      transfer_account_id: "",
     },
   });
 
   const type = watch("type");
   const selectedCategory = watch("category");
   const selectedAccountId = watch("bank_account_id");
+  const transferAccountId = watch("transfer_account_id");
   const selectedAccount = bankAccounts.find((a) => a.id === selectedAccountId);
+  const selectedTransferAccount = bankAccounts.find((a) => a.id === transferAccountId);
 
   useEffect(() => {
     setCustomCategories(loadCustomCategories());
   }, []);
 
   useEffect(() => {
+    if (type === "transfer") {
+      setValue("category", "transfer", { shouldValidate: false });
+      setIsCustomEditorOpen(false);
+      return;
+    }
+
     if (!selectedCategory) return;
 
     const defaults = type === "income" ? [...incomeCategories] : [...expenseCategories];
@@ -153,15 +192,25 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
     setErrorMsg("");
 
     try {
-      const result = await addTransaction({
-        name: data.name,
-        amount: data.amount,
-        type: data.type,
-        category: data.category,
-        date: data.date,
-        notes: data.notes,
-        bank_account_id: data.bank_account_id,
-      });
+      const result =
+        data.type === "transfer"
+          ? await createTransferTransaction({
+              name: data.name,
+              amount: data.amount,
+              date: data.date,
+              notes: data.notes,
+              from_bank_account_id: data.bank_account_id,
+              to_bank_account_id: data.transfer_account_id || "",
+            })
+          : await addTransaction({
+              name: data.name,
+              amount: data.amount,
+              type: data.type,
+              category: data.category,
+              date: data.date,
+              notes: data.notes,
+              bank_account_id: data.bank_account_id,
+            });
 
       if (!result.success) {
         setErrorMsg(result.error || "Gagal menyimpan transaksi");
@@ -177,6 +226,7 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
           type: "expense",
           date: new Date().toISOString().split("T")[0],
           bank_account_id: bankAccounts[0]?.id ?? "",
+          transfer_account_id: "",
         });
         setRawAmount("");
       }, 2000);
@@ -198,7 +248,10 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
       <Card className="shadow-sm border-[var(--card-border)]">
         <CardHeader className="pb-0">
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
-            <PlusCircle className={cn("h-5 w-5 transition-colors", type === "income" ? "text-emerald-500" : "text-rose-500")} />
+            <PlusCircle className={cn(
+              "h-5 w-5 transition-colors",
+              type === "income" ? "text-emerald-500" : type === "transfer" ? "text-teal-600" : "text-rose-500"
+            )} />
             Tambah Transaksi Fast
           </CardTitle>
         </CardHeader>
@@ -243,32 +296,54 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
                   name="type"
                   control={control}
                   render={({ field }) => (
-                    <div className="flex rounded-xl bg-[var(--muted)]/60 p-1 gap-1 border border-[var(--card-border)]/20">
+                    <div className="grid grid-cols-3 gap-2 rounded-2xl border border-[var(--card-border)]/25 bg-[var(--muted)]/50 p-2">
                       <button
                         type="button"
                         onClick={() => field.onChange("income")}
                         className={cn(
-                          "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs sm:text-sm font-semibold transition-all duration-150 cursor-pointer",
+                          "flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-3 text-[11px] font-semibold transition-all duration-150 cursor-pointer sm:min-h-[56px] sm:flex-row sm:gap-2 sm:px-3 sm:text-sm",
                           field.value === "income"
-                            ? "bg-[var(--card)] text-emerald-600 dark:text-emerald-400 shadow-sm border border-[var(--card-border)]/50"
-                            : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                            ? "border border-[var(--card-border)]/50 bg-[var(--card)] text-emerald-600 shadow-sm dark:text-emerald-400"
+                            : "bg-transparent text-[var(--muted-foreground)] hover:bg-[var(--card)]/45 hover:text-[var(--foreground)]"
                         )}
                       >
-                        <TrendingUp className="h-4 w-4" />
-                        Pemasukan
+                        <TrendingUp className="h-4 w-4 shrink-0" />
+                        <span className="text-center leading-[1.1]">
+                          <span className="block">Uang</span>
+                          <span className="block">Masuk</span>
+                        </span>
                       </button>
                       <button
                         type="button"
                         onClick={() => field.onChange("expense")}
                         className={cn(
-                          "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs sm:text-sm font-semibold transition-all duration-150 cursor-pointer",
+                          "flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-3 text-[11px] font-semibold transition-all duration-150 cursor-pointer sm:min-h-[56px] sm:flex-row sm:gap-2 sm:px-3 sm:text-sm",
                           field.value === "expense"
-                            ? "bg-[var(--card)] text-rose-600 dark:text-rose-400 shadow-sm border border-[var(--card-border)]/50"
-                            : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                            ? "border border-[var(--card-border)]/50 bg-[var(--card)] text-rose-600 shadow-sm dark:text-rose-400"
+                            : "bg-transparent text-[var(--muted-foreground)] hover:bg-[var(--card)]/45 hover:text-[var(--foreground)]"
                         )}
                       >
-                        <TrendingDown className="h-4 w-4" />
-                        Pengeluaran
+                        <TrendingDown className="h-4 w-4 shrink-0" />
+                        <span className="text-center leading-[1.1]">
+                          <span className="block">Uang</span>
+                          <span className="block">Keluar</span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => field.onChange("transfer")}
+                        className={cn(
+                          "flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-3 text-[11px] font-semibold transition-all duration-150 cursor-pointer sm:min-h-[56px] sm:flex-row sm:gap-2 sm:px-3 sm:text-sm",
+                          field.value === "transfer"
+                            ? "border border-[var(--card-border)]/50 bg-[var(--card)] text-teal-600 shadow-sm dark:text-teal-400"
+                            : "bg-transparent text-[var(--muted-foreground)] hover:bg-[var(--card)]/45 hover:text-[var(--foreground)]"
+                        )}
+                      >
+                        <ArrowRightLeft className="h-4 w-4 shrink-0" />
+                        <span className="text-center leading-[1.1]">
+                          <span className="block">Pindah</span>
+                          <span className="block">Dana</span>
+                        </span>
                       </button>
                     </div>
                   )}
@@ -322,6 +397,7 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
                 </div>
 
                 {/* Category */}
+                {type !== "transfer" && (
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between gap-3">
                     <Label className="text-xs font-medium text-[var(--muted-foreground)]">Kategori</Label>
@@ -490,10 +566,13 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
                     )}
                   </AnimatePresence>
                 </div>
+                )}
 
                 {/* Bank Account */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-[var(--muted-foreground)]">Rekening Tujuan</Label>
+                  <Label className="text-xs font-medium text-[var(--muted-foreground)]">
+                    {type === "transfer" ? "Rekening Asal" : "Rekening Tujuan"}
+                  </Label>
                   <Controller
                     name="bank_account_id"
                     control={control}
@@ -550,6 +629,69 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
                   )}
                 </div>
 
+                {type === "transfer" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-[var(--muted-foreground)]">Rekening Tujuan Transfer</Label>
+                    <Controller
+                      name="transfer_account_id"
+                      control={control}
+                      render={({ field }) => (
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger className="h-10 text-sm flex items-center justify-between">
+                            <div className="flex items-center gap-2 truncate">
+                              {selectedTransferAccount ? (
+                                <>
+                                  {selectedTransferAccount.logo?.startsWith("/") ? (
+                                    <div className="bg-white dark:bg-neutral-800 p-0.5 rounded border border-[var(--card-border)]/40 flex items-center justify-center w-6 h-4 shrink-0 shadow-sm">
+                                      <img src={selectedTransferAccount.logo} alt="" className="max-h-full max-w-full object-contain" />
+                                    </div>
+                                  ) : (
+                                    <span className="text-sm leading-none shrink-0">{selectedTransferAccount.logo}</span>
+                                  )}
+                                  <span className="truncate">{selectedTransferAccount.name}</span>
+                                </>
+                              ) : (
+                                <span className="text-[var(--muted-foreground)]">Pilih rekening tujuan...</span>
+                              )}
+                            </div>
+                            <SelectValue />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            {bankAccounts
+                              .filter((account) => account.id !== selectedAccountId)
+                              .map((account) => {
+                                const isImgLogo = account.logo?.startsWith("/");
+                                return (
+                                  <SelectItem key={account.id} value={account.id}>
+                                    <div className="flex items-center justify-between w-full min-w-[240px] text-sm">
+                                      <span className="flex items-center gap-2 truncate">
+                                        {isImgLogo ? (
+                                          <div className="bg-white p-0.5 rounded border border-neutral-200 dark:border-neutral-800 flex items-center justify-center w-6 h-4 shrink-0">
+                                            <img src={account.logo} alt="" className="max-h-full max-w-full object-contain" />
+                                          </div>
+                                        ) : (
+                                          <span className="text-base leading-none shrink-0">{account.logo}</span>
+                                        )}
+                                        <span className="truncate">{account.name}</span>
+                                      </span>
+                                      <span className="text-[var(--muted-foreground)] text-xs font-medium ml-auto pl-4 tabular-nums shrink-0">
+                                        {formatCurrency(account.balance, true)}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.transfer_account_id && (
+                      <p className="text-[11px] text-rose-500 font-medium">{errors.transfer_account_id.message}</p>
+                    )}
+                  </div>
+                )}
+
                 {/* Notes */}
                 <div className="space-y-1.5">
                   <Label htmlFor="notes" className="text-xs font-medium text-[var(--muted-foreground)]">
@@ -571,7 +713,9 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
                     "w-full h-11 font-semibold text-sm rounded-xl transition-all duration-200 mt-2 shadow-sm cursor-pointer text-white",
                     type === "income"
                       ? "bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-                      : "bg-rose-600 hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500"
+                      : type === "transfer"
+                        ? "bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500"
+                        : "bg-rose-600 hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500"
                   )}
                   disabled={isLoading}
                 >
@@ -582,8 +726,14 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <PlusCircle className="h-4 w-4" />
-                      <span>Simpan {type === "income" ? "Pemasukan" : "Pengeluaran"}</span>
+                      {type === "transfer" ? <ArrowRightLeft className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
+                      <span>
+                        {type === "income"
+                          ? "Simpan Pemasukan"
+                          : type === "transfer"
+                            ? "Simpan Transfer"
+                            : "Simpan Pengeluaran"}
+                      </span>
                     </div>
                   )}
                 </Button>

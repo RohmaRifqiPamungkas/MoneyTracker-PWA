@@ -10,6 +10,7 @@ import {
   TrendingUp,
   TrendingDown,
   ArrowUpDown,
+  ArrowRightLeft,
   Trash2,
   Download,
   Calendar,
@@ -17,7 +18,8 @@ import {
   FilterX,
   SlidersHorizontal,
   X,
-  CreditCard
+  CreditCard,
+  PencilLine,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +35,7 @@ import {
 import { CATEGORY_META } from "@/lib/mock-data";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { removeTransaction } from "@/app/actions";
+import { EditTransactionDialog } from "@/components/dashboard/edit-transaction-dialog";
 import type { TransactionRow, BankAccountRow } from "@/lib/supabase/types";
 import type { TransactionType, Category } from "@/lib/types";
 
@@ -94,6 +97,7 @@ export function TransactionsClient({
   const [sortBy, setSortBy] = useState<"date_desc" | "date_asc" | "amount_desc" | "amount_asc">("date_desc");
   const [page, setPage] = useState(1);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<TransactionRow | null>(null);
 
   // State laci filter mobile
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
@@ -355,6 +359,7 @@ export function TransactionsClient({
                 <SelectItem value="all">Semua Jenis</SelectItem>
                 <SelectItem value="income">Pemasukan (+)</SelectItem>
                 <SelectItem value="expense">Pengeluaran (-)</SelectItem>
+                <SelectItem value="transfer">Transfer</SelectItem>
               </SelectContent>
             </Select>
 
@@ -422,6 +427,7 @@ export function TransactionsClient({
                 paginatedTransactions.map((tx, i) => {
                   const catMeta = CATEGORY_META[tx.category as Category] || CATEGORY_META.other;
                   const bank = BANK_MAP[tx.bank_account_id];
+                  const transferBank = tx.transfer_account_id ? BANK_MAP[tx.transfer_account_id] : null;
 
                   return (
                     <motion.div
@@ -454,7 +460,7 @@ export function TransactionsClient({
                               <>
                                 <span className="flex items-center gap-1 text-[var(--foreground)]/80">
                                   <CreditCard className="h-2.5 w-2.5 opacity-60" />
-                                  <span>{bank.name}</span>
+                                  <span>{tx.type === "transfer" && transferBank ? `${bank.name} -> ${transferBank.name}` : bank.name}</span>
                                 </span>
                                 <span className="text-[var(--card-border)]">&bull;</span>
                               </>
@@ -470,11 +476,26 @@ export function TransactionsClient({
                         </div>
                       </div>
 
-                      {/* Right Layout: Amount + Trash Button */}
+                      {/* Right Layout: Amount + Action Buttons */}
                       <div className="flex items-center gap-2 shrink-0 pl-1">
-                        <span className={cn("text-xs sm:text-sm font-bold tabular-nums", tx.type === "income" ? "text-emerald-500" : "text-rose-500")}>
-                          {tx.type === "income" ? "+" : "−"}{formatCurrency(tx.amount, true)}
+                        <span className={cn(
+                          "flex items-center gap-1 text-xs sm:text-sm font-bold tabular-nums",
+                          tx.type === "income" ? "text-emerald-500" : tx.type === "transfer" ? "text-teal-600" : "text-rose-500"
+                        )}>
+                          {tx.type === "transfer" ? <ArrowRightLeft className="h-3.5 w-3.5" /> : null}
+                          {tx.type === "income" ? "+" : tx.type === "expense" ? "−" : ""}
+                          {formatCurrency(tx.amount, true)}
                         </span>
+
+                        {tx.type !== "transfer" && (
+                          <button
+                            onClick={() => setEditingTransaction(tx)}
+                            className="p-2 rounded-xl text-[var(--muted-foreground)] hover:text-emerald-600 hover:bg-emerald-500/10 sm:opacity-0 group-hover:opacity-100 transition-all duration-150 cursor-pointer shrink-0"
+                            aria-label="Edit transaksi"
+                          >
+                            <PencilLine className="h-3.5 w-3.5" />
+                          </button>
+                        )}
 
                         <button
                           onClick={() => handleDelete(tx.id)}
@@ -549,7 +570,7 @@ export function TransactionsClient({
                   <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Jenis Arus Kas</label>
                   <Select value={typeFilter} onValueChange={(v) => handleFilterChange(setTypeFilter, v)}>
                     <SelectTrigger className="h-11 bg-[var(--muted)]/50 border-transparent rounded-xl text-xs"><SelectValue placeholder="Pilih Jenis" /></SelectTrigger>
-                    <SelectContent><SelectItem value="all">Semua Jenis</SelectItem><SelectItem value="income">Pemasukan (+)</SelectItem><SelectItem value="expense">Pengeluaran (-)</SelectItem></SelectContent>
+                    <SelectContent><SelectItem value="all">Semua Jenis</SelectItem><SelectItem value="income">Pemasukan (+)</SelectItem><SelectItem value="expense">Pengeluaran (-)</SelectItem><SelectItem value="transfer">Transfer</SelectItem></SelectContent>
                   </Select>
                 </div>
 
@@ -601,6 +622,15 @@ export function TransactionsClient({
           </>
         )}
       </AnimatePresence>
+
+      <EditTransactionDialog
+        open={editingTransaction !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingTransaction(null);
+        }}
+        transaction={editingTransaction}
+        bankAccounts={bankAccounts}
+      />
     </div>
   );
 }
