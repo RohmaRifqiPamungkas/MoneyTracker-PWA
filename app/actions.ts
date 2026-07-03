@@ -4,6 +4,29 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { CATEGORY_META } from "@/lib/mock-data";
 
+type TransactionMutationValues = {
+  name: string;
+  amount: number;
+  type: "income" | "expense" | "transfer";
+  category: string;
+  date: string;
+  notes?: string;
+  bank_account_id: string;
+  transfer_account_id?: string | null;
+};
+
+type TransactionSnapshot = {
+  id: string;
+  name: string;
+  amount: number;
+  type: "income" | "expense" | "transfer";
+  category: string;
+  date: string;
+  notes: string | null;
+  bank_account_id: string;
+  transfer_account_id: string | null;
+};
+
 async function getAuthenticatedUserId() {
   const supabase = await createClient();
   const {
@@ -18,17 +41,84 @@ async function getAuthenticatedUserId() {
   return { supabase, userId: user.id };
 }
 
+async function applyAccountDelta(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  accountId: string,
+  delta: number
+) {
+  if (!delta) return;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: account, error } = await (supabase as any)
+    .from("bank_accounts")
+    .select("id, balance")
+    .eq("id", accountId)
+    .single();
+
+  if (error || !account) {
+    throw new Error(error?.message || "Rekening transaksi tidak ditemukan.");
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: updateError } = await (supabase as any)
+    .from("bank_accounts")
+    .update({
+      balance: Number(account.balance) + delta,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", accountId);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+}
+
+async function applyBudgetDelta(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  category: string,
+  delta: number
+) {
+  if (!delta) return;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: budget, error } = await (supabase as any)
+    .from("budget_items")
+    .select("id, spent")
+    .eq("category", category)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!budget) return;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: updateError } = await (supabase as any)
+    .from("budget_items")
+    .update({ spent: Math.max(0, Number(budget.spent) + delta) })
+    .eq("id", budget.id);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+}
+
+function getAccountDelta(tx: Pick<TransactionMutationValues, "type" | "amount">) {
+  return tx.type === "income" ? tx.amount : -tx.amount;
+}
+
+function revalidateFinancePages() {
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/transactions");
+  revalidatePath("/dashboard/budget");
+}
+
 // ── Transaction Actions ──────────────────────────────────────────────────────
 
-export async function addTransaction(values: {
-  name: string;
-  amount: number;
-  type: "income" | "expense";
-  category: string;
-  date: string;
-  notes?: string;
-  bank_account_id: string;
-}) {
+export async function addTransaction(values: TransactionMutationValues) {
   const { supabase, userId } = await getAuthenticatedUserId();
 
   if (!userId) {
@@ -49,6 +139,7 @@ export async function addTransaction(values: {
       date: values.date,
       notes: values.notes || null,
       bank_account_id: values.bank_account_id,
+      transfer_account_id: values.transfer_account_id || null,
     })
     .select()
     .single();
@@ -57,48 +148,167 @@ export async function addTransaction(values: {
     return { success: false, error: error.message };
   }
 
-  // 2. Update saldo rekening otomatis
+  try {
+    await applyAccountDelta(supabase, values.bank_account_id, getAccountDelta(values));
+
+    if (values.type === "expense") {
+      await applyBudgetDelta(supabase, values.category, values.amount);
+    }
+  } catch (updateError) {
+    return {
+      success: false,
+      error: updateError instanceof Error ? updateError.message : "Gagal memperbarui saldo rekening.",
+    };
+  }
+
+  revalidateFinancePages();
+
+  return { success: true, data };
+}
+
+export async function createTransferTransaction(values: {
+  name: string;
+  amount: number;
+  date: string;
+  notes?: string;
+  from_bank_account_id: string;
+  to_bank_account_id: string;
+}) {
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
+
+  if (values.from_bank_account_id === values.to_bank_account_id) {
+    return { success: false, error: "Rekening asal dan tujuan harus berbeda." };
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: account } = await (supabase as any)
-    .from("bank_accounts")
-    .select("balance")
-    .eq("id", values.bank_account_id)
+  const { data, error } = await (supabase as any)
+    .from("transactions")
+    .insert({
+      id: crypto.randomUUID(),
+      user_id: userId,
+      name: values.name,
+      amount: values.amount,
+      type: "transfer",
+      category: "transfer",
+      date: values.date,
+      notes: values.notes || null,
+      bank_account_id: values.from_bank_account_id,
+      transfer_account_id: values.to_bank_account_id,
+    })
+    .select()
     .single();
 
-  if (account) {
-    const newBalance =
-      values.type === "income"
-        ? account.balance + values.amount
-        : account.balance - values.amount;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
-      .from("bank_accounts")
-      .update({ balance: newBalance, updated_at: new Date().toISOString() })
-      .eq("id", values.bank_account_id);
+  if (error) {
+    return { success: false, error: error.message };
   }
 
-  // 3. Update budget spent jika expense
+  try {
+    await applyAccountDelta(supabase, values.from_bank_account_id, -values.amount);
+    await applyAccountDelta(supabase, values.to_bank_account_id, values.amount);
+  } catch (updateError) {
+    return {
+      success: false,
+      error: updateError instanceof Error ? updateError.message : "Gagal memindahkan saldo antar rekening.",
+    };
+  }
+
+  revalidateFinancePages();
+  return { success: true, data };
+}
+
+export async function updateTransaction(id: string, values: TransactionMutationValues) {
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
+
+  if (values.type === "transfer" && values.bank_account_id === values.transfer_account_id) {
+    return { success: false, error: "Rekening asal dan tujuan harus berbeda." };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: existing, error: existingError } = await (supabase as any)
+    .from("transactions")
+    .select("id, name, amount, type, category, date, notes, bank_account_id, transfer_account_id")
+    .eq("id", id)
+    .single();
+
+  if (existingError || !existing) {
+    return { success: false, error: existingError?.message || "Transaksi tidak ditemukan." };
+  }
+
+  const previous = existing as TransactionSnapshot;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("transactions")
+    .update({
+      name: values.name,
+      amount: values.amount,
+      type: values.type,
+      category: values.category,
+      date: values.date,
+      notes: values.notes || null,
+      bank_account_id: values.bank_account_id,
+      transfer_account_id: values.transfer_account_id || null,
+    })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  const accountDeltas = new Map<string, number>();
+  const applyDelta = (accountId: string | null | undefined, delta: number) => {
+    if (!accountId || !delta) return;
+    accountDeltas.set(accountId, (accountDeltas.get(accountId) || 0) + delta);
+  };
+
+  if (previous.type === "transfer") {
+    applyDelta(previous.bank_account_id, previous.amount);
+    applyDelta(previous.transfer_account_id, -previous.amount);
+  } else {
+    applyDelta(previous.bank_account_id, -getAccountDelta(previous));
+  }
+
+  if (values.type === "transfer") {
+    applyDelta(values.bank_account_id, -values.amount);
+    applyDelta(values.transfer_account_id, values.amount);
+  } else {
+    applyDelta(values.bank_account_id, getAccountDelta(values));
+  }
+
+  const budgetDeltas = new Map<string, number>();
+  if (previous.type === "expense") {
+    budgetDeltas.set(previous.category, (budgetDeltas.get(previous.category) || 0) - previous.amount);
+  }
   if (values.type === "expense") {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: budget } = await (supabase as any)
-      .from("budget_items")
-      .select("id, spent")
-      .eq("category", values.category)
-      .single();
-
-    if (budget) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
-        .from("budget_items")
-        .update({ spent: budget.spent + values.amount })
-        .eq("id", budget.id);
-    }
+    budgetDeltas.set(values.category, (budgetDeltas.get(values.category) || 0) + values.amount);
   }
 
-  // 4. Revalidate dashboard agar data segar
-  revalidatePath("/dashboard");
+  try {
+    for (const [accountId, delta] of accountDeltas) {
+      await applyAccountDelta(supabase, accountId, delta);
+    }
 
+    for (const [category, delta] of budgetDeltas) {
+      await applyBudgetDelta(supabase, category, delta);
+    }
+  } catch (updateError) {
+    return {
+      success: false,
+      error: updateError instanceof Error ? updateError.message : "Gagal sinkronkan saldo transaksi.",
+    };
+  }
+
+  revalidateFinancePages();
   return { success: true, data };
 }
 
@@ -157,52 +367,17 @@ export async function removeTransaction(id: string) {
 
   // Ambil data transaksi dulu untuk rollback saldo
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: tx } = await (supabase as any)
+  const { data: tx, error: txError } = await (supabase as any)
     .from("transactions")
-    .select("amount, type, bank_account_id, category")
+    .select("id, name, amount, type, category, date, notes, bank_account_id, transfer_account_id")
     .eq("id", id)
     .single();
 
-  if (tx) {
-    // Rollback saldo rekening
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: account } = await (supabase as any)
-      .from("bank_accounts")
-      .select("balance")
-      .eq("id", tx.bank_account_id)
-      .single();
-
-    if (account) {
-      const newBalance =
-        tx.type === "income"
-          ? account.balance - tx.amount
-          : account.balance + tx.amount;
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
-        .from("bank_accounts")
-        .update({ balance: newBalance, updated_at: new Date().toISOString() })
-        .eq("id", tx.bank_account_id);
-    }
-
-    // Rollback budget spent jika expense
-    if (tx.type === "expense") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: budget } = await (supabase as any)
-        .from("budget_items")
-        .select("id, spent")
-        .eq("category", tx.category)
-        .single();
-
-      if (budget) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any)
-          .from("budget_items")
-          .update({ spent: Math.max(0, budget.spent - tx.amount) })
-          .eq("id", budget.id);
-      }
-    }
+  if (txError || !tx) {
+    return { success: false, error: txError?.message || "Transaksi tidak ditemukan." };
   }
+
+  const snapshot = tx as TransactionSnapshot;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (supabase as any)
@@ -214,7 +389,27 @@ export async function removeTransaction(id: string) {
     return { success: false, error: error.message };
   }
 
-  revalidatePath("/dashboard");
+  try {
+    if (snapshot.type === "transfer") {
+      await applyAccountDelta(supabase, snapshot.bank_account_id, snapshot.amount);
+      if (snapshot.transfer_account_id) {
+        await applyAccountDelta(supabase, snapshot.transfer_account_id, -snapshot.amount);
+      }
+    } else {
+      await applyAccountDelta(supabase, snapshot.bank_account_id, -getAccountDelta(snapshot));
+    }
+
+    if (snapshot.type === "expense") {
+      await applyBudgetDelta(supabase, snapshot.category, -snapshot.amount);
+    }
+  } catch (updateError) {
+    return {
+      success: false,
+      error: updateError instanceof Error ? updateError.message : "Gagal memperbarui saldo setelah hapus transaksi.",
+    };
+  }
+
+  revalidateFinancePages();
   return { success: true };
 }
 

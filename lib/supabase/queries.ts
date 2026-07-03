@@ -296,6 +296,8 @@ export async function getMonthlyData() {
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
   data.forEach((tx) => {
+    if (tx.type === "transfer") return;
+
     const d = new Date(tx.date);
     const monthStr = monthNames[d.getMonth()];
 
@@ -305,7 +307,7 @@ export async function getMonthlyData() {
 
     const entry = monthlyMap.get(monthStr)!;
     if (tx.type === "income") entry.income += tx.amount;
-    else entry.expense += tx.amount;
+    if (tx.type === "expense") entry.expense += tx.amount;
   });
 
   return Array.from(monthlyMap.values());
