@@ -1,20 +1,12 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, startTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { TrendingUp, Wallet, Target, Calendar } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { FinancialOverview } from "@/components/dashboard/financial-overview";
-import { CashflowChart } from "@/components/dashboard/cashflow-chart";
-import { ExpenseChart } from "@/components/dashboard/expense-chart";
-import { RecentTransactions } from "@/components/dashboard/recent-transactions";
-import { BudgetProgress } from "@/components/dashboard/budget-progress";
-import { FinancialInsights } from "@/components/dashboard/financial-insights";
-import { GoalsTracker } from "@/components/dashboard/goals-tracker";
-import { UpcomingBills } from "@/components/dashboard/upcoming-bills";
-import { BankAccountsWidget } from "@/components/dashboard/bank-accounts";
-import { QuickTransactionForm } from "@/components/dashboard/quick-transaction-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
   TransactionRow,
@@ -25,6 +17,79 @@ import type {
 } from "@/lib/supabase/types";
 import type { MonthlyData, CategoryExpense, Insight, FinancialSummary } from "@/lib/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+
+// Lazy load heavy chart components to improve page load performance
+const CashflowChart = dynamic(
+  () => import("@/components/dashboard/cashflow-chart").then((m) => m.CashflowChart),
+  {
+    loading: () => <Skeleton className="h-72 w-full rounded-2xl" />,
+    ssr: false,
+  }
+);
+
+const ExpenseChart = dynamic(
+  () => import("@/components/dashboard/expense-chart").then((m) => m.ExpenseChart),
+  {
+    loading: () => <Skeleton className="h-64 w-full rounded-2xl" />,
+    ssr: false,
+  }
+);
+
+const FinancialInsights = dynamic(
+  () => import("@/components/dashboard/financial-insights").then((m) => m.FinancialInsights),
+  {
+    loading: () => <Skeleton className="h-64 w-full rounded-2xl" />,
+    ssr: false,
+  }
+);
+
+const RecentTransactions = dynamic(
+  () => import("@/components/dashboard/recent-transactions").then((m) => m.RecentTransactions),
+  {
+    loading: () => <Skeleton className="h-80 w-full rounded-2xl" />,
+    ssr: false,
+  }
+);
+
+const BudgetProgress = dynamic(
+  () => import("@/components/dashboard/budget-progress").then((m) => m.BudgetProgress),
+  {
+    loading: () => <Skeleton className="h-48 w-full rounded-2xl" />,
+    ssr: false,
+  }
+);
+
+const GoalsTracker = dynamic(
+  () => import("@/components/dashboard/goals-tracker").then((m) => m.GoalsTracker),
+  {
+    loading: () => <Skeleton className="h-32 w-full rounded-2xl" />,
+    ssr: false,
+  }
+);
+
+const UpcomingBills = dynamic(
+  () => import("@/components/dashboard/upcoming-bills").then((m) => m.UpcomingBills),
+  {
+    loading: () => <Skeleton className="h-32 w-full rounded-2xl" />,
+    ssr: false,
+  }
+);
+
+const QuickTransactionForm = dynamic(
+  () => import("@/components/dashboard/quick-transaction-form").then((m) => m.QuickTransactionForm),
+  {
+    loading: () => <Skeleton className="h-48 w-full rounded-2xl" />,
+    ssr: false,
+  }
+);
+
+const BankAccountsWidget = dynamic(
+  () => import("@/components/dashboard/bank-accounts").then((m) => m.BankAccountsWidget),
+  {
+    loading: () => <Skeleton className="h-32 w-full rounded-2xl" />,
+    ssr: false,
+  }
+);
 
 const MONTHS = [
   { value: 0, label: "Januari" },
@@ -97,7 +162,9 @@ export function DashboardClient({
 
   // Fungsi untuk update query params URL saat dropdown diganti
   const handlePeriodChange = (month: number, year: number) => {
-    router.push(`/dashboard?month=${month}&year=${year}`);
+    startTransition(() => {
+      router.push(`/dashboard?month=${month}&year=${year}`);
+    });
   };
 
   return (

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { startTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -98,7 +99,9 @@ export function BudgetClient({ initialBudgets, currentMonth: initialMonth, curre
 
   // Fungsi untuk update query params URL saat dropdown diganti
   const handlePeriodChange = (month: number, year: number) => {
-    router.push(`/dashboard/budget?month=${month}&year=${year}`);
+    startTransition(() => {
+      router.push(`/dashboard/budget?month=${month}&year=${year}`);
+    });
   };
 
   const {
