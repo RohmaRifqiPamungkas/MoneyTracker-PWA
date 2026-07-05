@@ -5,7 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Loader2, PlusCircle, TrendingDown, TrendingUp, AlertCircle, Sparkles, X, ArrowRightLeft } from "lucide-react";
+import { CheckCircle2, Loader2, PlusCircle, TrendingDown, TrendingUp, AlertCircle, ArrowRightLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,35 +18,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORY_META } from "@/lib/mock-data";
 import { cn, formatCurrency } from "@/lib/utils";
-import { addTransaction, createTransferTransaction } from "@/app/actions";
+import { addTransaction, createCategory, createTransferTransaction } from "@/app/actions";
 import type { BankAccountRow } from "@/lib/supabase/types";
-
-interface CustomCategory {
-  id: string;
-  name: string;
-  emoji: string;
-  color: string;
-}
-
-const STORAGE_KEY = "moneytracker_custom_categories";
+import type { AvailableTransactionCategories, CategoryOption } from "@/lib/supabase/queries";
 const EMOJI_OPTIONS = ["🏷️", "🎯", "🌟", "💫", "⭐", "🔥", "💎", "🎁", "🎪", "🎭", "🎨", "🎲"];
 const COLOR_OPTIONS = ["#10b981", "#6366f1", "#f59e0b", "#3b82f6", "#ec4899", "#14b8a6", "#8b5cf6", "#06b6d4", "#f97316", "#ef4444"];
 
-function loadCustomCategories(): CustomCategory[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCustomCategories(cats: CustomCategory[]) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cats));
+function slugifyCategoryName(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
 }
 
 const schema = z
@@ -90,15 +75,18 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
-const incomeCategories = ["salary", "freelance", "investment", "other"] as const;
-const expenseCategories = ["food", "transport", "shopping", "bills", "entertainment", "health", "other"] as const;
-
-export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccountRow[] }) {
+export function QuickTransactionForm({
+  bankAccounts,
+  availableCategories,
+}: {
+  bankAccounts: BankAccountRow[];
+  availableCategories: AvailableTransactionCategories;
+}) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [rawAmount, setRawAmount] = useState("");
-  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [categoryState, setCategoryState] = useState<AvailableTransactionCategories>(availableCategories);
   const [isCustomEditorOpen, setIsCustomEditorOpen] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [newCatEmoji, setNewCatEmoji] = useState("🏷️");
@@ -130,8 +118,8 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
   const selectedTransferAccount = bankAccounts.find((a) => a.id === transferAccountId);
 
   useEffect(() => {
-    setCustomCategories(loadCustomCategories());
-  }, []);
+    setCategoryState(availableCategories);
+  }, [availableCategories]);
 
   useEffect(() => {
     if (type === "transfer") {
@@ -142,13 +130,11 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
 
     if (!selectedCategory) return;
 
-    const defaults = type === "income" ? [...incomeCategories] : [...expenseCategories];
-    const isCustomForType = selectedCategory.startsWith(`custom_${type}_`);
-
-    if (!defaults.some((category) => category === selectedCategory) && !isCustomForType) {
+    const defaults = type === "income" ? categoryState.income : categoryState.expense;
+    if (!defaults.some((category) => category.slug === selectedCategory)) {
       setValue("category", "", { shouldValidate: false });
     }
-  }, [selectedCategory, setValue, type]);
+  }, [categoryState.expense, categoryState.income, selectedCategory, setValue, type]);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, "");
@@ -156,35 +142,54 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
     setValue("amount", Number(raw), { shouldValidate: true });
   };
 
-  const handleCreateCategory = () => {
-    if (!newCatName.trim()) return;
+  const handleCreateCategory = async () => {
+    if (!newCatName.trim() || type === "transfer") return;
 
-    const newId = `custom_${type}_${Date.now()}`;
-    const newCategory: CustomCategory = {
-      id: newId,
+    const slug = slugifyCategoryName(newCatName);
+    if (!slug) return;
+
+    const result = await createCategory({
       name: newCatName.trim(),
+      slug,
+      type,
       emoji: newCatEmoji,
       color: newCatColor,
+    });
+
+    if (!result.success || !result.data) {
+      setErrorMsg(result.error || "Gagal menyimpan kategori.");
+      return;
+    }
+
+    const newCategory: CategoryOption = {
+      id: result.data.id,
+      slug: result.data.slug,
+      name: result.data.name,
+      type: result.data.type,
+      emoji: result.data.emoji,
+      color: result.data.color,
+      is_system: result.data.is_system,
     };
 
-    const updated = [...customCategories, newCategory];
-    setCustomCategories(updated);
-    saveCustomCategories(updated);
-    setValue("category", newId, { shouldValidate: true });
+    setCategoryState((current) => {
+      const nextBySlug = { ...current.bySlug, [newCategory.slug]: newCategory };
+      return newCategory.type === "income"
+        ? {
+            bySlug: nextBySlug,
+            income: [...current.income.filter((item) => item.slug !== newCategory.slug), newCategory],
+            expense: current.expense,
+          }
+        : {
+            bySlug: nextBySlug,
+            income: current.income,
+            expense: [...current.expense.filter((item) => item.slug !== newCategory.slug), newCategory],
+          };
+    });
+    setValue("category", newCategory.slug, { shouldValidate: true });
     setNewCatName("");
     setNewCatEmoji("🏷️");
     setNewCatColor("#10b981");
     setIsCustomEditorOpen(false);
-  };
-
-  const handleDeleteCategory = (catId: string) => {
-    const updated = customCategories.filter((cat) => cat.id !== catId);
-    setCustomCategories(updated);
-    saveCustomCategories(updated);
-
-    if (selectedCategory === catId) {
-      setValue("category", "", { shouldValidate: true });
-    }
   };
 
   const onSubmit = async (data: FormValues) => {
@@ -236,8 +241,7 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
     }
   };
 
-  const categoryOptions = type === "income" ? incomeCategories : expenseCategories;
-  const categoryCustom = customCategories.filter((cat) => cat.id.startsWith(`custom_${type}_`));
+  const categoryOptions = type === "income" ? categoryState.income : categoryState.expense;
 
   return (
     <motion.div
@@ -418,14 +422,13 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
                       <div className="space-y-2">
                         <div className="grid grid-cols-3 gap-2">
                           {categoryOptions.map((cat) => {
-                            const meta = CATEGORY_META[cat];
-                            const isSelected = field.value === cat;
+                            const isSelected = field.value === cat.slug;
 
                             return (
                               <button
-                                key={cat}
+                                key={`${cat.type}-${cat.slug}`}
                                 type="button"
-                                onClick={() => field.onChange(cat)}
+                                onClick={() => field.onChange(cat.slug)}
                                 className={cn(
                                   "flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-center transition-all",
                                   isSelected
@@ -433,51 +436,12 @@ export function QuickTransactionForm({ bankAccounts }: { bankAccounts: BankAccou
                                     : "border-[var(--card-border)] bg-[var(--muted)]/40 text-[var(--muted-foreground)] hover:bg-[var(--muted)]/75"
                                 )}
                               >
-                                <span className="text-base leading-none">{meta?.emoji}</span>
-                                <span className="w-full truncate px-0.5 text-[10px] leading-tight">{meta?.label}</span>
+                                <span className="text-base leading-none">{cat.emoji}</span>
+                                <span className="w-full truncate px-0.5 text-[10px] leading-tight">{cat.name}</span>
                               </button>
                             );
                           })}
                         </div>
-
-                        {categoryCustom.length > 0 && (
-                          <div className="grid grid-cols-3 gap-2 border-t border-[var(--card-border)]/30 pt-2">
-                            {categoryCustom.map((cat) => {
-                              const isSelected = field.value === cat.id;
-                              return (
-                                <button
-                                  key={cat.id}
-                                  type="button"
-                                  onClick={() => field.onChange(cat.id)}
-                                  className={cn(
-                                    "group relative flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-center transition-all",
-                                    isSelected
-                                      ? "font-bold shadow-sm"
-                                      : "border-[var(--card-border)] bg-[var(--muted)]/40 text-[var(--muted-foreground)] hover:bg-[var(--muted)]/75"
-                                  )}
-                                  style={
-                                    isSelected
-                                      ? { borderColor: cat.color, backgroundColor: `${cat.color}10`, color: cat.color }
-                                      : undefined
-                                  }
-                                >
-                                  <span className="text-base leading-none">{cat.emoji}</span>
-                                  <span className="w-full truncate px-0.5 text-[10px] leading-tight">{cat.name}</span>
-                                  <button
-                                    type="button"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      handleDeleteCategory(cat.id);
-                                    }}
-                                    className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                                  >
-                                    <X className="h-2.5 w-2.5" />
-                                  </button>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
                       </div>
                     )}
                   />

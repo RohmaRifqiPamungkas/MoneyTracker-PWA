@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { CATEGORY_META } from "@/lib/mock-data";
+import { getFallbackCategoryMeta } from "@/lib/categories";
 
 type TransactionMutationValues = {
   name: string;
@@ -163,6 +163,49 @@ export async function addTransaction(values: TransactionMutationValues) {
 
   revalidateFinancePages();
 
+  return { success: true, data };
+}
+
+export async function createCategory(values: {
+  name: string;
+  slug: string;
+  type: "income" | "expense";
+  emoji: string;
+  color: string;
+}) {
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
+
+  const normalizedSlug = values.slug.trim().toLowerCase();
+  if (!normalizedSlug) {
+    return { success: false, error: "Slug kategori tidak valid." };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("categories")
+    .insert({
+      id: crypto.randomUUID(),
+      user_id: userId,
+      slug: normalizedSlug,
+      name: values.name.trim(),
+      type: values.type,
+      emoji: values.emoji,
+      color: values.color,
+      is_system: false,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidateFinancePages();
+  revalidatePath("/dashboard/budget");
   return { success: true, data };
 }
 
@@ -356,6 +399,44 @@ export async function addBankAccount(values: {
   return { success: true, data };
 }
 
+export async function updateBankAccountBalance(values: {
+  id: string;
+  balance: number;
+}) {
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
+
+  if (!values.id) {
+    return { success: false, error: "Rekening tidak ditemukan." };
+  }
+
+  if (!Number.isFinite(values.balance) || values.balance < 0) {
+    return { success: false, error: "Saldo harus berupa angka nol atau lebih." };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("bank_accounts")
+    .update({
+      balance: values.balance,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", values.id)
+    .eq("user_id", userId)
+    .select("id, balance")
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true, data };
+}
+
 // ── Delete Transaction ──────────────────────────────────────────────────────
 
 export async function removeTransaction(id: string) {
@@ -422,8 +503,20 @@ export async function upsertBudgetItem(category: string, limit: number) {
     return { success: false, error: "Anda harus login terlebih dahulu." };
   }
 
-  // Cari label dan color dari CATEGORY_META
-  const meta = CATEGORY_META[category] || { label: category, color: "#94a3b8" };
+  // Ambil metadata kategori dari DB dulu, lalu fallback ke preset lokal.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: categoryRow } = await (supabase as any)
+    .from("categories")
+    .select("slug, name, color, type")
+    .eq("slug", category)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const fallbackMeta = getFallbackCategoryMeta(category, "expense");
+  const meta = {
+    label: categoryRow?.name || fallbackMeta.name,
+    color: categoryRow?.color || fallbackMeta.color,
+  };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: existing } = await (supabase as any)

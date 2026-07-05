@@ -59,6 +59,21 @@ create table if not exists public.transactions (
     )
 );
 
+-- ── Categories ───────────────────────────────────────────────────────────
+create table if not exists public.categories (
+  id         text        primary key default gen_random_uuid()::text,
+  user_id    uuid        not null references auth.users(id) on delete cascade,
+  slug       text        not null,
+  name       text        not null,
+  type       text        not null check (type in ('income', 'expense')),
+  emoji      text        not null default '🏷️',
+  color      text        not null default '#94a3b8',
+  is_system  boolean     not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint categories_user_type_slug_unique unique (user_id, type, slug)
+);
+
 -- ── Budget Items ─────────────────────────────────────────────────────────
 create table if not exists public.budget_items (
   id         text        primary key default gen_random_uuid()::text,
@@ -101,6 +116,7 @@ create table if not exists public.upcoming_bills (
 alter table public.bank_accounts add column if not exists user_id uuid references auth.users(id) on delete cascade;
 alter table public.transactions add column if not exists user_id uuid references auth.users(id) on delete cascade;
 alter table public.transactions add column if not exists transfer_account_id text;
+alter table public.categories add column if not exists user_id uuid references auth.users(id) on delete cascade;
 alter table public.budget_items add column if not exists user_id uuid references auth.users(id) on delete cascade;
 alter table public.savings_goals add column if not exists user_id uuid references auth.users(id) on delete cascade;
 alter table public.upcoming_bills add column if not exists user_id uuid references auth.users(id) on delete cascade;
@@ -152,12 +168,16 @@ alter table public.budget_items drop constraint if exists budget_items_category_
 create unique index if not exists budget_items_user_category_idx
   on public.budget_items(user_id, category);
 
+create unique index if not exists categories_user_type_slug_idx
+  on public.categories(user_id, type, slug);
+
 -- ── Indexes ──────────────────────────────────────────────────────────────
 create index if not exists idx_bank_accounts_user        on public.bank_accounts(user_id);
 create index if not exists idx_transactions_user_date    on public.transactions(user_id, date desc);
 create index if not exists idx_transactions_user_type    on public.transactions(user_id, type);
 create index if not exists idx_transactions_bank_account on public.transactions(bank_account_id);
 create index if not exists idx_transactions_transfer_account on public.transactions(transfer_account_id);
+create index if not exists idx_categories_user_type      on public.categories(user_id, type);
 create index if not exists idx_budget_items_user         on public.budget_items(user_id);
 create index if not exists idx_savings_goals_user_date   on public.savings_goals(user_id, target_date asc);
 create index if not exists idx_upcoming_bills_user_due   on public.upcoming_bills(user_id, due_date asc);
@@ -181,6 +201,11 @@ for each row execute function public.set_updated_at();
 drop trigger if exists bank_accounts_set_updated_at on public.bank_accounts;
 create trigger bank_accounts_set_updated_at
 before update on public.bank_accounts
+for each row execute function public.set_updated_at();
+
+drop trigger if exists categories_set_updated_at on public.categories;
+create trigger categories_set_updated_at
+before update on public.categories
 for each row execute function public.set_updated_at();
 
 drop trigger if exists savings_goals_set_updated_at on public.savings_goals;
@@ -212,6 +237,21 @@ begin
     (new.id::text || '-cash-1',    new.id, 'Uang Tunai',       'Tunai',             'cash',    null,   0, '#10b981', '💵',                array['#10b981', '#059669'])
   on conflict (id) do nothing;
 
+  insert into public.categories (id, user_id, slug, name, type, emoji, color, is_system)
+  values
+    (gen_random_uuid()::text, new.id, 'salary',        'Gaji',         'income',  '💰', '#10b981', true),
+    (gen_random_uuid()::text, new.id, 'freelance',     'Freelance',    'income',  '💼', '#8b5cf6', true),
+    (gen_random_uuid()::text, new.id, 'investment',    'Investasi',    'income',  '📈', '#06b6d4', true),
+    (gen_random_uuid()::text, new.id, 'other',         'Lainnya',      'income',  '📦', '#94a3b8', true),
+    (gen_random_uuid()::text, new.id, 'food',          'Makanan',      'expense', '🍔', '#10b981', true),
+    (gen_random_uuid()::text, new.id, 'transport',     'Transportasi', 'expense', '🚗', '#6366f1', true),
+    (gen_random_uuid()::text, new.id, 'shopping',      'Belanja',      'expense', '🛍️', '#f59e0b', true),
+    (gen_random_uuid()::text, new.id, 'bills',         'Tagihan',      'expense', '📄', '#3b82f6', true),
+    (gen_random_uuid()::text, new.id, 'entertainment', 'Hiburan',      'expense', '🎮', '#ec4899', true),
+    (gen_random_uuid()::text, new.id, 'health',        'Kesehatan',    'expense', '💊', '#14b8a6', true),
+    (gen_random_uuid()::text, new.id, 'other',         'Lainnya',      'expense', '📦', '#94a3b8', true)
+  on conflict (user_id, type, slug) do nothing;
+
   insert into public.budget_items (id, user_id, category, label, spent, "limit", color)
   values
     (gen_random_uuid()::text, new.id, 'food',          'Makanan',      0, 3000000, '#10b981'),
@@ -231,10 +271,79 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
 
+insert into public.categories (id, user_id, slug, name, type, emoji, color, is_system)
+select
+  gen_random_uuid()::text,
+  base.user_id,
+  base.slug,
+  base.name,
+  base.type,
+  base.emoji,
+  base.color,
+  false
+from (
+  select distinct
+    source.user_id,
+    source.slug,
+    source.type,
+    case source.slug
+      when 'salary' then 'Gaji'
+      when 'freelance' then 'Freelance'
+      when 'investment' then 'Investasi'
+      when 'food' then 'Makanan'
+      when 'transport' then 'Transportasi'
+      when 'shopping' then 'Belanja'
+      when 'bills' then 'Tagihan'
+      when 'entertainment' then 'Hiburan'
+      when 'health' then 'Kesehatan'
+      when 'other' then 'Lainnya'
+      else source.slug
+    end as name,
+    case source.slug
+      when 'salary' then '💰'
+      when 'freelance' then '💼'
+      when 'investment' then '📈'
+      when 'food' then '🍔'
+      when 'transport' then '🚗'
+      when 'shopping' then '🛍️'
+      when 'bills' then '📄'
+      when 'entertainment' then '🎮'
+      when 'health' then '💊'
+      when 'other' then '📦'
+      else '🏷️'
+    end as emoji,
+    case source.slug
+      when 'salary' then '#10b981'
+      when 'freelance' then '#8b5cf6'
+      when 'investment' then '#06b6d4'
+      when 'food' then '#10b981'
+      when 'transport' then '#6366f1'
+      when 'shopping' then '#f59e0b'
+      when 'bills' then '#3b82f6'
+      when 'entertainment' then '#ec4899'
+      when 'health' then '#14b8a6'
+      when 'other' then '#94a3b8'
+      else '#94a3b8'
+    end as color
+  from (
+    select user_id, category as slug, type
+    from public.transactions
+    where type in ('income', 'expense')
+      and user_id is not null
+    union
+    select user_id, category as slug, 'expense' as type
+    from public.budget_items
+    where user_id is not null
+  ) as source
+) as base
+where base.user_id is not null
+on conflict (user_id, type, slug) do nothing;
+
 -- ── Row Level Security ───────────────────────────────────────────────────
 alter table public.profiles       enable row level security;
 alter table public.bank_accounts  enable row level security;
 alter table public.transactions   enable row level security;
+alter table public.categories     enable row level security;
 alter table public.budget_items   enable row level security;
 alter table public.savings_goals  enable row level security;
 alter table public.upcoming_bills enable row level security;
@@ -255,6 +364,10 @@ drop policy if exists "transactions_own_all" on public.transactions;
 create policy "transactions_own_all" on public.transactions
 for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+drop policy if exists "categories_own_all" on public.categories;
+create policy "categories_own_all" on public.categories
+for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 drop policy if exists "budget_items_own_all" on public.budget_items;
 create policy "budget_items_own_all" on public.budget_items
 for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -270,6 +383,7 @@ for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 -- Remove old open policies if this project previously used single-user mode.
 drop policy if exists "allow_all_bank_accounts" on public.bank_accounts;
 drop policy if exists "allow_all_transactions" on public.transactions;
+drop policy if exists "allow_all_categories" on public.categories;
 drop policy if exists "allow_all_budget_items" on public.budget_items;
 drop policy if exists "allow_all_savings_goals" on public.savings_goals;
 drop policy if exists "allow_all_upcoming_bills" on public.upcoming_bills;

@@ -15,7 +15,6 @@ import {
   Wallet,
   ArrowRight,
   ArrowLeft,
-  X,
   Sparkles,
 } from "lucide-react";
 import {
@@ -29,37 +28,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { addTransaction, createTransferTransaction } from "@/app/actions";
-import { CATEGORY_META, BANK_ACCOUNTS as MOCK_BANK_ACCOUNTS } from "@/lib/mock-data";
+import { addTransaction, createCategory, createTransferTransaction } from "@/app/actions";
+import { BANK_ACCOUNTS as MOCK_BANK_ACCOUNTS } from "@/lib/mock-data";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { BankAccountRow } from "@/lib/supabase/types";
-
-/* ── Custom Category Types & Storage ─────────────────────── */
-interface CustomCategory {
-  id: string;
-  name: string;
-  emoji: string;
-  color: string;
-}
-
-const STORAGE_KEY = "moneytracker_custom_categories";
+import type { AvailableTransactionCategories, CategoryOption } from "@/lib/supabase/queries";
 
 const EMOJI_OPTIONS = ["🏷️", "🎯", "🌟", "💫", "⭐", "🔥", "💎", "🎁", "🎪", "🎭", "🎨", "🎲", "🎸", "🎺", "🎻", "🏆", "🥇", "🎖️", "🏅"];
 const COLOR_OPTIONS = ["#10b981", "#6366f1", "#f59e0b", "#3b82f6", "#ec4899", "#14b8a6", "#8b5cf6", "#06b6d4", "#f97316", "#ef4444", "#84cc16", "#a855f7"];
 
-function loadCustomCategories(): CustomCategory[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCustomCategories(cats: CustomCategory[]) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cats));
+function slugifyCategoryName(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
 }
 
 /* ── Zod schema ─────────────────────────────────────────── */
@@ -104,14 +88,12 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
-const incomeCategories = ["salary", "freelance", "investment", "other"] as const;
-const expenseCategories = ["food", "transport", "shopping", "bills", "entertainment", "health", "other"] as const;
-
 interface TransactionDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   defaultType?: "income" | "expense" | "transfer";
   bankAccounts?: BankAccountRow[];
+  availableCategories: AvailableTransactionCategories;
 }
 
 function StepIndicator({ total, current, onBack, showBack }: { total: number; current: number; onBack: () => void; showBack: boolean }) {
@@ -154,11 +136,12 @@ export function TransactionDialog({
   onOpenChange,
   defaultType = "expense",
   bankAccounts = [],
+  availableCategories,
 }: TransactionDialogProps) {
   const [step, setStep] = useState(0); // 0: Info Awal, 1: Detail Lengkap, 2: Sukses, 3: Form Kategori Kustom (Multi-step)
   const [isLoading, setLoading] = useState(false);
   const [rawAmount, setRawAmount] = useState("");
-  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [categoryState, setCategoryState] = useState<AvailableTransactionCategories>(availableCategories);
   
   // State manajemen pembuatan kategori kustom
   const [newCatName, setNewCatName] = useState("");
@@ -168,9 +151,9 @@ export function TransactionDialog({
   // Muat kategori kustom saat dialog dibuka
   useEffect(() => {
     if (open) {
-      setCustomCategories(loadCustomCategories());
+      setCategoryState(availableCategories);
     }
-  }, [open]);
+  }, [availableCategories, open]);
 
   const {
     register,
@@ -191,45 +174,65 @@ export function TransactionDialog({
   });
 
   const type = watch("type");
+  const selectedCategory = watch("category");
   const bankId = watch("bankAccountId");
   const transferBankId = watch("transferAccountId");
 
   // Pisahkan kategori bawaan dan kustom berdasarkan tipe transaksi aktif
   const getAllCategories = () => {
-    const defaults = type === "income" ? incomeCategories : expenseCategories;
-    const customForType = customCategories.filter(c => c.id.startsWith(`custom_${type}_`));
-    return { defaults, custom: customForType };
+    const defaults = type === "income" ? categoryState.income : categoryState.expense;
+    return { defaults };
   };
 
-  const handleCreateCategory = () => {
-    if (!newCatName.trim()) return;
+  const handleCreateCategory = async () => {
+    if (!newCatName.trim() || type === "transfer") return;
 
-    const newId = `custom_${type}_${Date.now()}`;
-    const newCat: CustomCategory = {
-      id: newId,
+    const slug = slugifyCategoryName(newCatName);
+    if (!slug) return;
+
+    const result = await createCategory({
       name: newCatName.trim(),
+      slug,
+      type,
       emoji: newCatEmoji,
       color: newCatColor,
+    });
+
+    if (!result.success || !result.data) {
+      alert(result.error || "Gagal menyimpan kategori.");
+      return;
+    }
+
+    const newCategory: CategoryOption = {
+      id: result.data.id,
+      slug: result.data.slug,
+      name: result.data.name,
+      type: result.data.type,
+      emoji: result.data.emoji,
+      color: result.data.color,
+      is_system: result.data.is_system,
     };
 
-    const updated = [...customCategories, newCat];
-    setCustomCategories(updated);
-    saveCustomCategories(updated);
-    
-    // Set otomatis kategori form utama dengan ID yang baru saja dibuat
-    setValue("category", newId, { shouldValidate: true });
-    
-    // Reset state input kategori kustom & kembali ke Step 1
+    setCategoryState((current) => {
+      const nextBySlug = { ...current.bySlug, [newCategory.slug]: newCategory };
+      return newCategory.type === "income"
+        ? {
+            bySlug: nextBySlug,
+            income: [...current.income.filter((item) => item.slug !== newCategory.slug), newCategory],
+            expense: current.expense,
+          }
+        : {
+            bySlug: nextBySlug,
+            income: current.income,
+            expense: [...current.expense.filter((item) => item.slug !== newCategory.slug), newCategory],
+          };
+    });
+
+    setValue("category", newCategory.slug, { shouldValidate: true });
     setNewCatName("");
     setNewCatEmoji("🏷️");
     setNewCatColor("#10b981");
     setStep(1);
-  };
-
-  const handleDeleteCategory = (catId: string) => {
-    const updated = customCategories.filter(c => c.id !== catId);
-    setCustomCategories(updated);
-    saveCustomCategories(updated);
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -243,7 +246,14 @@ export function TransactionDialog({
       setValue("category", "transfer", { shouldValidate: false });
       return;
     }
-  }, [setValue, type]);
+
+    if (!selectedCategory) return;
+
+    const defaults = type === "income" ? categoryState.income : categoryState.expense;
+    if (!defaults.some((category) => category.slug === selectedCategory)) {
+      setValue("category", "", { shouldValidate: false });
+    }
+  }, [categoryState.expense, categoryState.income, selectedCategory, setValue, type]);
 
   const handleNextStep = async () => {
     const fields =
@@ -310,7 +320,7 @@ export function TransactionDialog({
         }))
       : MOCK_BANK_ACCOUNTS;
 
-  const { defaults: categoryDefaults, custom: categoryCustom } = getAllCategories();
+  const { defaults: categoryDefaults } = getAllCategories();
   const selectedBank = displayBankAccounts.find((b) => b.id === bankId);
   const selectedTransferBank = displayBankAccounts.find((b) => b.id === transferBankId);
   const isSelectedBankImgLogo = selectedBank?.logo?.startsWith("/");
@@ -685,13 +695,12 @@ export function TransactionDialog({
                         {/* Default Categories */}
                         <div className="grid grid-cols-3 gap-2">
                           {categoryDefaults.map((cat) => {
-                            const meta = CATEGORY_META[cat];
-                            const isSelected = field.value === cat;
+                            const isSelected = field.value === cat.slug;
                             return (
                               <button
-                                key={cat}
+                                key={`${cat.type}-${cat.slug}`}
                                 type="button"
-                                onClick={() => field.onChange(cat)}
+                                onClick={() => field.onChange(cat.slug)}
                                 className={cn(
                                   "flex flex-col items-center justify-center gap-1 rounded-xl border py-2 px-1 text-center transition-all duration-150 select-none cursor-pointer min-h-[56px]",
                                   isSelected
@@ -699,52 +708,14 @@ export function TransactionDialog({
                                     : "border-[var(--card-border)] bg-[var(--muted)]/40 text-[var(--muted-foreground)] hover:bg-[var(--muted)]/80"
                                 )}
                               >
-                                <span className="text-base leading-none">{meta?.emoji}</span>
+                                <span className="text-base leading-none">{cat.emoji}</span>
                                 <span className="text-[10px] leading-tight truncate w-full px-0.5">
-                                  {meta?.label}
+                                  {cat.name}
                                 </span>
                               </button>
                             );
                           })}
                         </div>
-                        {/* Custom Categories */}
-                        {categoryCustom.length > 0 && (
-                          <div className="grid grid-cols-3 gap-2 pt-1 border-t border-[var(--card-border)]/30">
-                            {categoryCustom.map((cat) => {
-                              const isSelected = field.value === cat.id;
-                              return (
-                                <button
-                                  key={cat.id}
-                                  type="button"
-                                  onClick={() => field.onChange(cat.id)}
-                                  className={cn(
-                                    "flex flex-col items-center justify-center gap-1 rounded-xl border py-2 px-1 text-center transition-all duration-150 select-none cursor-pointer min-h-[56px] relative group",
-                                    isSelected
-                                      ? "border-emerald-500 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 font-bold shadow-sm"
-                                      : "border-[var(--card-border)] bg-[var(--muted)]/40 text-[var(--muted-foreground)] hover:bg-[var(--muted)]/80"
-                                  )}
-                                  style={isSelected ? { borderColor: cat.color, backgroundColor: `${cat.color}10` } : {}}
-                                >
-                                  <span className="text-base leading-none">{cat.emoji}</span>
-                                  <span className="text-[10px] leading-tight truncate w-full px-0.5">
-                                    {cat.name}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteCategory(cat.id);
-                                      if (field.value === cat.id) field.onChange("");
-                                    }}
-                                    className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-rose-500 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                                  >
-                                    <X className="h-2.5 w-2.5" />
-                                  </button>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
                       </div>
                     )}
                   />

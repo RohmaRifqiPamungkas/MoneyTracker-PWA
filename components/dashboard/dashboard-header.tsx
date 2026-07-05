@@ -17,14 +17,16 @@ import { useEffect, useState } from "react";
 import { TransactionDialog } from "@/components/layout/transaction-dialog";
 import { signOutAction } from "@/lib/auth/actions";
 import type { BankAccountRow } from "@/lib/supabase/types";
+import type { AvailableTransactionCategories } from "@/lib/supabase/queries";
 
 type DefaultType = "income" | "expense";
 
 interface DashboardHeaderProps {
   bankAccounts: BankAccountRow[];
+  availableCategories: AvailableTransactionCategories;
 }
 
-export function DashboardHeader({ bankAccounts }: DashboardHeaderProps) {
+export function DashboardHeader({ bankAccounts, availableCategories }: DashboardHeaderProps) {
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator === "undefined" ? true : navigator.onLine
   );
@@ -142,6 +144,7 @@ export function DashboardHeader({ bankAccounts }: DashboardHeaderProps) {
         onOpenChange={setDialogOpen}
         defaultType={defaultType}
         bankAccounts={bankAccounts}
+        availableCategories={availableCategories}
       />
     </>
   );

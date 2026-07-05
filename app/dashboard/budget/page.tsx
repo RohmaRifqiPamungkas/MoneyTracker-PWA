@@ -1,4 +1,4 @@
-import { getBudgetItems } from "@/lib/supabase/queries";
+import { getAvailableTransactionCategories, getBudgetItems } from "@/lib/supabase/queries";
 import { BudgetClient } from "@/components/dashboard/budget-client";
 
 export const metadata = {
@@ -21,11 +21,15 @@ export default async function BudgetPage({ searchParams }: BudgetPageProps) {
   const selectedYear = params.year ? parseInt(params.year, 10) : currentDate.getFullYear();
 
   // Ambil budget items dengan spent yang dihitung dari transaksi bulan tersebut
-  const budgetItems = await getBudgetItems(selectedMonth, selectedYear);
+  const [budgetItems, availableCategories] = await Promise.all([
+    getBudgetItems(selectedMonth, selectedYear),
+    getAvailableTransactionCategories(),
+  ]);
 
   return (
     <BudgetClient
       initialBudgets={budgetItems}
+      availableCategories={availableCategories}
       currentMonth={selectedMonth}
       currentYear={selectedYear}
     />

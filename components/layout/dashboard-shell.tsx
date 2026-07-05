@@ -4,13 +4,15 @@ import { useState } from "react";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { TransactionDialog } from "@/components/layout/transaction-dialog";
 import type { BankAccountRow } from "@/lib/supabase/types";
+import type { AvailableTransactionCategories } from "@/lib/supabase/queries";
 
 interface DashboardShellProps {
   children: React.ReactNode;
   bankAccounts: BankAccountRow[];
+  availableCategories: AvailableTransactionCategories;
 }
 
-export function DashboardShell({ children, bankAccounts }: DashboardShellProps) {
+export function DashboardShell({ children, bankAccounts, availableCategories }: DashboardShellProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
@@ -21,6 +23,7 @@ export function DashboardShell({ children, bankAccounts }: DashboardShellProps) 
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         bankAccounts={bankAccounts}
+        availableCategories={availableCategories}
       />
     </>
   );

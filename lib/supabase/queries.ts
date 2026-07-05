@@ -7,13 +7,51 @@
  */
 
 import { createClient } from "./server";
+import { getFallbackCategoryMeta } from "@/lib/categories";
 import type {
   TransactionRow,
   BankAccountRow,
+  CategoryRow,
   BudgetItemRow,
   SavingsGoalRow,
   UpcomingBillRow,
 } from "./types";
+
+export interface CategoryOption {
+  id: string;
+  slug: string;
+  name: string;
+  type: "income" | "expense";
+  emoji: string;
+  color: string;
+  is_system?: boolean;
+}
+
+export interface AvailableTransactionCategories {
+  income: CategoryOption[];
+  expense: CategoryOption[];
+  bySlug: Record<string, CategoryOption>;
+}
+
+function normalizeCategoryOption(category: CategoryOption) {
+  return {
+    ...category,
+    is_system: category.is_system ?? false,
+  };
+}
+
+function createSyntheticCategory(slug: string, type: "income" | "expense"): CategoryOption {
+  const fallback = getFallbackCategoryMeta(slug, type);
+  return {
+    id: `synthetic-${type}-${slug}`,
+    slug,
+    name: fallback.name,
+    type,
+    emoji: fallback.emoji,
+    color: fallback.color,
+    is_system: false,
+  };
+}
 
 // Helper internal untuk generate string ISO batas awal dan akhir bulan (YYYY-MM-DD)
 function getMonthBounds(month?: number, year?: number) {
@@ -49,6 +87,99 @@ export async function getTransactions(month?: number, year?: number, limit = 50)
     return [];
   }
   return (data ?? []) as TransactionRow[];
+}
+
+export async function getCategories(): Promise<CategoryRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("categories")
+    .select("*")
+    .order("type", { ascending: true })
+    .order("is_system", { ascending: false })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("[getCategories]", error.message);
+    return [];
+  }
+
+  return (data ?? []) as CategoryRow[];
+}
+
+export async function getAvailableTransactionCategories(): Promise<AvailableTransactionCategories> {
+  const supabase = await createClient();
+
+  const [categoriesResult, transactionsResult, budgetResult] = await Promise.all([
+    supabase.from("categories").select("*"),
+    supabase
+      .from("transactions")
+      .select("category, type")
+      .in("type", ["income", "expense"])
+      .limit(1000),
+    supabase.from("budget_items").select("category"),
+  ]);
+
+  const bySlug = new Map<string, CategoryOption>();
+  const incomeCategories: CategoryOption[] = [];
+  const expenseCategories: CategoryOption[] = [];
+
+  const addCategory = (category: CategoryOption) => {
+    const normalized = normalizeCategoryOption(category);
+    const existing = bySlug.get(normalized.slug);
+    if (existing) return existing;
+
+    bySlug.set(normalized.slug, normalized);
+    if (normalized.type === "income") incomeCategories.push(normalized);
+    if (normalized.type === "expense") expenseCategories.push(normalized);
+    return normalized;
+  };
+
+  if (!categoriesResult.error) {
+    const categories = (categoriesResult.data ?? []) as CategoryRow[];
+    categories.forEach((category) => {
+      addCategory({
+        id: category.id,
+        slug: category.slug,
+        name: category.name,
+        type: category.type,
+        emoji: category.emoji,
+        color: category.color,
+        is_system: category.is_system,
+      });
+    });
+  } else {
+    console.error("[getAvailableTransactionCategories.categories]", categoriesResult.error.message);
+  }
+
+  if (!transactionsResult.error) {
+    const transactions = (transactionsResult.data ?? []) as Pick<TransactionRow, "category" | "type">[];
+
+    transactions.forEach((tx) => {
+      if (!tx.category) return;
+      if ((tx.type === "income" || tx.type === "expense") && !bySlug.has(tx.category)) {
+        addCategory(createSyntheticCategory(tx.category, tx.type));
+      }
+    });
+  } else {
+    console.error("[getAvailableTransactionCategories.transactions]", transactionsResult.error.message);
+  }
+
+  if (!budgetResult.error) {
+    const budgetCategories = (budgetResult.data ?? []) as Pick<BudgetItemRow, "category">[];
+    budgetCategories.forEach((item) => {
+      if (item.category && !bySlug.has(item.category)) {
+        addCategory(createSyntheticCategory(item.category, "expense"));
+      }
+    });
+  } else {
+    console.error("[getAvailableTransactionCategories.budget_items]", budgetResult.error.message);
+  }
+
+  return {
+    income: incomeCategories,
+    expense: expenseCategories,
+    bySlug: Object.fromEntries(Array.from(bySlug.entries())),
+  };
 }
 
 /**

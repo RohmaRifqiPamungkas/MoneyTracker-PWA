@@ -32,12 +32,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORY_META } from "@/lib/mock-data";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { removeTransaction } from "@/app/actions";
 import { EditTransactionDialog } from "@/components/dashboard/edit-transaction-dialog";
 import type { TransactionRow, BankAccountRow } from "@/lib/supabase/types";
-import type { TransactionType, Category } from "@/lib/types";
+import type { TransactionType } from "@/lib/types";
+import type { AvailableTransactionCategories } from "@/lib/supabase/queries";
 
 const PAGE_SIZE = 10;
 
@@ -61,6 +61,7 @@ const YEARS = [2024, 2025, 2026, 2027];
 interface TransactionsClientProps {
   initialTransactions: TransactionRow[];
   bankAccounts: BankAccountRow[];
+  availableCategories: AvailableTransactionCategories;
   currentMonth: number;
   currentYear: number;
 }
@@ -68,6 +69,7 @@ interface TransactionsClientProps {
 export function TransactionsClient({
   initialTransactions,
   bankAccounts,
+  availableCategories,
   currentMonth: initialMonth,
   currentYear: initialYear,
 }: TransactionsClientProps) {
@@ -171,7 +173,7 @@ export function TransactionsClient({
       tx.date,
       `"${tx.name.replace(/"/g, '""')}"`,
       tx.type === "income" ? "Masuk" : "Keluar",
-      CATEGORY_META[tx.category]?.label || tx.category,
+      availableCategories.bySlug[tx.category]?.name || tx.category,
       `"${(BANK_MAP[tx.bank_account_id]?.name || "Cash").replace(/"/g, '""')}"`,
       tx.amount,
       `"${(tx.notes || "").replace(/"/g, '""')}"`,
@@ -367,9 +369,9 @@ export function TransactionsClient({
               <SelectTrigger className="h-10 bg-[var(--card)] border-[var(--card-border)] rounded-xl text-xs sm:text-sm cursor-pointer"><SelectValue placeholder="Semua Kategori" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Kategori</SelectItem>
-                {Object.entries(CATEGORY_META).map(([key, meta]) => (
-                  <SelectItem key={key} value={key}>
-                    <span className="flex items-center gap-2"><span>{meta.emoji}</span><span>{meta.label}</span></span>
+                {Object.values(availableCategories.bySlug).map((category) => (
+                  <SelectItem key={`${category.type}-${category.slug}`} value={category.slug}>
+                    <span className="flex items-center gap-2"><span>{category.emoji}</span><span>{category.name}</span></span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -425,7 +427,11 @@ export function TransactionsClient({
                 </motion.div>
               ) : (
                 paginatedTransactions.map((tx, i) => {
-                  const catMeta = CATEGORY_META[tx.category as Category] || CATEGORY_META.other;
+                  const catMeta = availableCategories.bySlug[tx.category] || {
+                    name: tx.category,
+                    emoji: "🏷️",
+                    color: "#94a3b8",
+                  };
                   const bank = BANK_MAP[tx.bank_account_id];
                   const transferBank = tx.transfer_account_id ? BANK_MAP[tx.transfer_account_id] : null;
 
@@ -454,7 +460,7 @@ export function TransactionsClient({
 
                           {/* Metadata Badges */}
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] sm:text-xs text-[var(--muted-foreground)] font-medium">
-                            <span className="text-[var(--foreground)] opacity-85">{catMeta.label}</span>
+                            <span className="text-[var(--foreground)] opacity-85">{catMeta.name}</span>
                             <span className="text-[var(--card-border)] sm:inline">&bull;</span>
                             {bank && (
                               <>
@@ -580,8 +586,8 @@ export function TransactionsClient({
                     <SelectTrigger className="h-11 bg-[var(--muted)]/50 border-transparent rounded-xl text-xs"><SelectValue placeholder="Pilih Kategori" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Semua Kategori</SelectItem>
-                      {Object.entries(CATEGORY_META).map(([key, meta]) => (
-                        <SelectItem key={key} value={key}><span className="flex items-center gap-2"><span>{meta.emoji}</span><span>{meta.label}</span></span></SelectItem>
+                      {Object.values(availableCategories.bySlug).map((category) => (
+                        <SelectItem key={`${category.type}-${category.slug}`} value={category.slug}><span className="flex items-center gap-2"><span>{category.emoji}</span><span>{category.name}</span></span></SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -630,6 +636,7 @@ export function TransactionsClient({
         }}
         transaction={editingTransaction}
         bankAccounts={bankAccounts}
+        availableCategories={availableCategories}
       />
     </div>
   );

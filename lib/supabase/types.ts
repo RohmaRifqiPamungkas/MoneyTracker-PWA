@@ -46,6 +46,19 @@ export interface TransactionRow {
   created_at: string;
 }
 
+export interface CategoryRow {
+  id: string;
+  user_id: string;
+  slug: string;
+  name: string;
+  type: "income" | "expense";
+  emoji: string;
+  color: string;
+  is_system: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface BudgetItemRow {
   id: string;
   user_id: string;
@@ -82,6 +95,7 @@ export interface UpcomingBillRow {
 
 // ── Insert types ───────────────────────────────────────────────────────────
 export type TransactionInsert = Omit<TransactionRow, "created_at">;
+export type CategoryInsert = Omit<CategoryRow, "created_at" | "updated_at">;
 export type BankAccountInsert = Omit<BankAccountRow, "created_at" | "updated_at">;
 export type BudgetItemInsert  = Omit<BudgetItemRow,  "created_at">;
 export type SavingsGoalInsert = Omit<SavingsGoalRow, "created_at" | "updated_at">;
@@ -100,6 +114,11 @@ export type Database = {
         Row: TransactionRow;
         Insert: TransactionInsert;
         Update: Partial<TransactionInsert>;
+      };
+      categories: {
+        Row: CategoryRow;
+        Insert: CategoryInsert;
+        Update: Partial<CategoryInsert>;
       };
       budget_items: {
         Row: BudgetItemRow;

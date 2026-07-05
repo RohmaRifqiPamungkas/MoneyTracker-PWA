@@ -3,6 +3,7 @@ import { FINANCIAL_INSIGHTS } from "@/lib/mock-data";
 import {
   getTransactions,
   getBankAccounts,
+  getAvailableTransactionCategories,
   getBudgetItems,
   getSavingsGoals,
   getUpcomingBills,
@@ -37,6 +38,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const [
     transactions,
     bankAccounts,
+    availableCategories,
     budgetItems,
     savingsGoals,
     upcomingBills,
@@ -46,6 +48,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   ] = await Promise.all([
     getTransactions(selectedMonth, selectedYear), // Masukkan parameter jika query Anda mendukung filter
     getBankAccounts(),
+    getAvailableTransactionCategories(),
     getBudgetItems(),
     getSavingsGoals(),
     getUpcomingBills(),
@@ -62,6 +65,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       insights={FINANCIAL_INSIGHTS}
       transactions={transactions}
       bankAccounts={bankAccounts}
+      availableCategories={availableCategories}
       budgetItems={budgetItems}
       savingsGoals={savingsGoals}
       upcomingBills={upcomingBills}

@@ -16,6 +16,7 @@ import type {
   UpcomingBillRow,
 } from "@/lib/supabase/types";
 import type { MonthlyData, CategoryExpense, Insight, FinancialSummary } from "@/lib/types";
+import type { AvailableTransactionCategories } from "@/lib/supabase/queries";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 // Lazy load heavy chart components to improve page load performance
@@ -125,6 +126,7 @@ interface DashboardClientProps {
   insights: Insight[];
   transactions: TransactionRow[];
   bankAccounts: BankAccountRow[];
+  availableCategories: AvailableTransactionCategories;
   budgetItems: BudgetItemRow[];
   savingsGoals: SavingsGoalRow[];
   upcomingBills: UpcomingBillRow[];
@@ -139,6 +141,7 @@ export function DashboardClient({
   insights,
   transactions,
   bankAccounts,
+  availableCategories,
   budgetItems,
   savingsGoals,
   upcomingBills,
@@ -169,7 +172,7 @@ export function DashboardClient({
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      <DashboardHeader bankAccounts={bankAccounts} />
+      <DashboardHeader bankAccounts={bankAccounts} availableCategories={availableCategories} />
 
       <main className="mx-auto max-w-screen-xl px-4 py-5 sm:px-6 lg:px-8">
 
@@ -294,14 +297,14 @@ export function DashboardClient({
               <FinancialInsights insights={insights} />
             </div>
 
-            <RecentTransactions transactions={transactions} bankAccounts={bankAccounts} />
+              <RecentTransactions transactions={transactions} bankAccounts={bankAccounts} availableCategories={availableCategories} />
           </div>
 
           {/* Right Column: sidebar widgets */}
           <div className="flex flex-col gap-5">
-            <QuickTransactionForm bankAccounts={bankAccounts} />
+              <QuickTransactionForm bankAccounts={bankAccounts} availableCategories={availableCategories} />
             <BankAccountsWidget accounts={bankAccounts} />
-            <BudgetProgress budgetItems={budgetItems} />
+              <BudgetProgress budgetItems={budgetItems} availableCategories={availableCategories} />
             <GoalsTracker goals={savingsGoals} />
             <UpcomingBills bills={upcomingBills} />
           </div>
@@ -334,9 +337,9 @@ export function DashboardClient({
                 transition={{ duration: 0.2 }}
                 className="flex flex-col gap-5"
               >
-                <QuickTransactionForm bankAccounts={bankAccounts} />
+                <QuickTransactionForm bankAccounts={bankAccounts} availableCategories={availableCategories} />
                 <BankAccountsWidget accounts={bankAccounts} />
-                <RecentTransactions transactions={transactions} bankAccounts={bankAccounts} />
+                <RecentTransactions transactions={transactions} bankAccounts={bankAccounts} availableCategories={availableCategories} />
               </motion.div>
             )}
 
@@ -349,7 +352,7 @@ export function DashboardClient({
                 transition={{ duration: 0.2 }}
                 className="flex flex-col gap-5"
               >
-                <BudgetProgress budgetItems={budgetItems} />
+                <BudgetProgress budgetItems={budgetItems} availableCategories={availableCategories} />
                 <GoalsTracker goals={savingsGoals} />
                 <UpcomingBills bills={upcomingBills} />
               </motion.div>

@@ -24,18 +24,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updateTransaction } from "@/app/actions";
-import { CATEGORY_META } from "@/lib/mock-data";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { BankAccountRow, TransactionRow } from "@/lib/supabase/types";
-
-interface CustomCategory {
-  id: string;
-  name: string;
-  emoji: string;
-  color: string;
-}
-
-const STORAGE_KEY = "moneytracker_custom_categories";
+import type { AvailableTransactionCategories } from "@/lib/supabase/queries";
 
 const schema = z.object({
   amount: z.number().positive("Nominal harus lebih dari 0"),
@@ -49,28 +40,12 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-const incomeCategories = ["salary", "freelance", "investment", "other"] as const;
-const expenseCategories = ["food", "transport", "shopping", "bills", "entertainment", "health", "other"] as const;
-
-function loadCustomCategories(): CustomCategory[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-function getCategoryPresentation(category: string) {
-  return CATEGORY_META[category] || { label: category, emoji: "🏷️", color: "#94a3b8" };
-}
-
 interface EditTransactionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   transaction: TransactionRow | null;
   bankAccounts: BankAccountRow[];
+  availableCategories: AvailableTransactionCategories;
 }
 
 export function EditTransactionDialog({
@@ -78,12 +53,13 @@ export function EditTransactionDialog({
   onOpenChange,
   transaction,
   bankAccounts,
+  availableCategories,
 }: EditTransactionDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [rawAmount, setRawAmount] = useState("");
-  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [categoryState, setCategoryState] = useState<AvailableTransactionCategories>(availableCategories);
 
   const {
     register,
@@ -106,10 +82,8 @@ export function EditTransactionDialog({
   const selectedCategory = watch("category");
 
   useEffect(() => {
-    if (!open) return;
-
-    setCustomCategories(loadCustomCategories());
-  }, [open]);
+    setCategoryState(availableCategories);
+  }, [availableCategories]);
 
   useEffect(() => {
     if (!open || !transaction) return;
@@ -131,13 +105,12 @@ export function EditTransactionDialog({
   useEffect(() => {
     if (!selectedCategory) return;
 
-    const defaults = type === "income" ? [...incomeCategories] : [...expenseCategories];
-    const isCustomForType = selectedCategory.startsWith(`custom_${type}_`);
-
-    if (!defaults.some((category) => category === selectedCategory) && !isCustomForType) {
+    const defaults =
+      type === "income" ? categoryState.income : categoryState.expense;
+    if (!defaults.some((category) => category.slug === selectedCategory)) {
       setValue("category", "", { shouldValidate: false });
     }
-  }, [selectedCategory, setValue, type]);
+  }, [categoryState.expense, categoryState.income, selectedCategory, setValue, type]);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, "");
@@ -182,8 +155,8 @@ export function EditTransactionDialog({
     }
   };
 
-  const defaultCategories = type === "income" ? incomeCategories : expenseCategories;
-  const typeCustomCategories = customCategories.filter((cat) => cat.id.startsWith(`custom_${type}_`));
+  const defaultCategories =
+    type === "income" ? categoryState.income : categoryState.expense;
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
@@ -315,24 +288,15 @@ export function EditTransactionDialog({
                     </SelectTrigger>
                     <SelectContent>
                       {defaultCategories.map((category) => {
-                        const meta = getCategoryPresentation(category);
                         return (
-                          <SelectItem key={category} value={category}>
+                          <SelectItem key={`${category.type}-${category.slug}`} value={category.slug}>
                             <span className="flex items-center gap-2">
-                              <span>{meta.emoji}</span>
-                              <span>{meta.label}</span>
+                              <span>{category.emoji}</span>
+                              <span>{category.name}</span>
                             </span>
                           </SelectItem>
                         );
                       })}
-                      {typeCustomCategories.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          <span className="flex items-center gap-2">
-                            <span>{category.emoji}</span>
-                            <span>{category.name}</span>
-                          </span>
-                        </SelectItem>
-                      ))}
                     </SelectContent>
                   </Select>
                 )}

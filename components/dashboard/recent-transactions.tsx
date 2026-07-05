@@ -13,20 +13,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORY_META } from "@/lib/mock-data";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { removeTransaction } from "@/app/actions";
 import type { TransactionType } from "@/lib/types";
 import type { TransactionRow, BankAccountRow } from "@/lib/supabase/types";
+import type { AvailableTransactionCategories } from "@/lib/supabase/queries";
 
 const PAGE_SIZE = 6;
 
 export function RecentTransactions({
   transactions,
   bankAccounts,
+  availableCategories,
 }: {
   transactions: TransactionRow[];
   bankAccounts: BankAccountRow[];
+  availableCategories: AvailableTransactionCategories;
 }) {
   const BANK_MAP = useMemo(() => Object.fromEntries(bankAccounts.map((b) => [b.id, b])), [bankAccounts]);
   const [search, setSearch]     = useState("");
@@ -38,7 +40,7 @@ export function RecentTransactions({
     return transactions.filter((tx) => {
       const matchSearch =
         tx.name.toLowerCase().includes(search.toLowerCase()) ||
-        (CATEGORY_META[tx.category]?.label.toLowerCase().includes(search.toLowerCase()) ?? false) ||
+        (availableCategories.bySlug[tx.category]?.name.toLowerCase().includes(search.toLowerCase()) ?? false) ||
         (BANK_MAP[tx.bank_account_id]?.name.toLowerCase().includes(search.toLowerCase()) ?? false);
       const matchType = typeFilter === "all" || tx.type === typeFilter;
       return matchSearch && matchType;
@@ -126,7 +128,11 @@ export function RecentTransactions({
                   </motion.div>
                 ) : (
                   paginated.map((tx, i) => {
-                    const catMeta = CATEGORY_META[tx.category as any];
+                    const catMeta = availableCategories.bySlug[tx.category] || {
+                      name: tx.category,
+                      emoji: "🏷️",
+                      color: "#94a3b8",
+                    };
                     const bank    = BANK_MAP[tx.bank_account_id];
                     const transferBank = tx.transfer_account_id ? BANK_MAP[tx.transfer_account_id] : null;
 
@@ -155,7 +161,7 @@ export function RecentTransactions({
                               {tx.name}
                             </p>
                             <p className="text-[10px] sm:text-[11px] text-[var(--muted-foreground)] mt-0.5 truncate font-medium">
-                              {catMeta?.label}
+                              {catMeta.name}
                               {bank ? ` • ${tx.type === "transfer" && transferBank ? `${bank.name} -> ${transferBank.name}` : bank.name}` : ""}
                               {` • ${formatDate(tx.date, "dd MMM")}`}
                             </p>

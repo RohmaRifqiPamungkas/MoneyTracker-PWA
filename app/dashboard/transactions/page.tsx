@@ -1,4 +1,4 @@
-import { getTransactions, getBankAccounts } from "@/lib/supabase/queries";
+import { getTransactions, getBankAccounts, getAvailableTransactionCategories } from "@/lib/supabase/queries";
 import { TransactionsClient } from "@/components/dashboard/transactions-client";
 
 export const metadata = {
@@ -21,15 +21,17 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
   const selectedYear = params.year ? parseInt(params.year, 10) : currentDate.getFullYear();
 
   // Ambil transaksi berdasarkan bulan dan tahun yang dipilih
-  const [transactions, bankAccounts] = await Promise.all([
+  const [transactions, bankAccounts, availableCategories] = await Promise.all([
     getTransactions(selectedMonth, selectedYear, 250),
     getBankAccounts(),
+    getAvailableTransactionCategories(),
   ]);
 
   return (
     <TransactionsClient
       initialTransactions={transactions}
       bankAccounts={bankAccounts}
+      availableCategories={availableCategories}
       currentMonth={selectedMonth}
       currentYear={selectedYear}
     />

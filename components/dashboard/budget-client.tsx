@@ -37,6 +37,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { upsertBudgetItem } from "@/app/actions";
 import type { BudgetItemRow } from "@/lib/supabase/types";
 import type { Category } from "@/lib/types";
+import type { AvailableTransactionCategories } from "@/lib/supabase/queries";
 
 // Schema validasi
 const budgetSchema = z.object({
@@ -62,23 +63,19 @@ const MONTHS = [
 
 const YEARS = [2024, 2025, 2026, 2027];
 
-const expenseCategories = [
-  { value: "food", label: "Makanan", emoji: "🍔" },
-  { value: "transport", label: "Transportasi", emoji: "🚗" },
-  { value: "shopping", label: "Belanja", emoji: "🛍️" },
-  { value: "bills", label: "Tagihan", emoji: "📄" },
-  { value: "entertainment", label: "Hiburan", emoji: "🎮" },
-  { value: "health", label: "Kesehatan", emoji: "💊" },
-  { value: "other", label: "Lainnya", emoji: "📦" },
-];
-
 interface BudgetClientProps {
   initialBudgets: BudgetItemRow[];
+  availableCategories: AvailableTransactionCategories;
   currentMonth: number;
   currentYear: number;
 }
 
-export function BudgetClient({ initialBudgets, currentMonth: initialMonth, currentYear: initialYear }: BudgetClientProps) {
+export function BudgetClient({
+  initialBudgets,
+  availableCategories,
+  currentMonth: initialMonth,
+  currentYear: initialYear,
+}: BudgetClientProps) {
   const router = useRouter();
   const [currentMonth, setCurrentMonth] = useState(initialMonth);
   const [currentYear, setCurrentYear] = useState(initialYear);
@@ -322,7 +319,10 @@ export function BudgetClient({ initialBudgets, currentMonth: initialMonth, curre
                   const pct = Math.min(Math.round((item.spent / item.limit) * 100), 999);
                   const isOver = pct >= 100;
                   const isWarning = pct >= 80 && pct < 100;
-                  const meta = CATEGORY_META[item.category as Category] || { emoji: "📝", label: item.category };
+                  const categoryMeta = availableCategories.bySlug[item.category];
+                  const fallbackMeta = CATEGORY_META[item.category as Category];
+                  const metaEmoji = categoryMeta?.emoji || fallbackMeta?.emoji || "📝";
+                  const metaLabel = categoryMeta?.name || fallbackMeta?.label || item.category;
 
                   // Rombak ke utility class untuk kecocokan penuh dengan Shadcn Progress
                   const progressBgClass = isOver
@@ -349,10 +349,10 @@ export function BudgetClient({ initialBudgets, currentMonth: initialMonth, curre
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--muted)] border border-[var(--card-border)]/10 text-base shadow-sm">
-                            {meta.emoji}
+                            {metaEmoji}
                           </div>
                           <span className="text-xs sm:text-sm font-semibold text-[var(--foreground)] truncate">
-                            {meta.label}
+                            {metaLabel}
                           </span>
                           {(isOver || isWarning) && (
                             <span className={cn(
@@ -442,7 +442,7 @@ export function BudgetClient({ initialBudgets, currentMonth: initialMonth, curre
                         {editingBudget ? "Edit Batas Anggaran" : "Atur Anggaran Kategori"}
                       </h2>
                       <p className="text-[11px] sm:text-xs text-[var(--muted-foreground)] truncate mt-0.5 opacity-80">
-                        {editingBudget ? `Sesuaikan limit anggaran untuk ${CATEGORY_META[editingBudget.category as Category]?.label || editingBudget.category}` : "Pilih kategori dan tentukan batas limit bulanan"}
+                        {editingBudget ? `Sesuaikan limit anggaran untuk ${availableCategories.bySlug[editingBudget.category]?.name || editingBudget.category}` : "Pilih kategori dan tentukan batas limit bulanan"}
                       </p>
                     </div>
                   </div>
@@ -460,7 +460,7 @@ export function BudgetClient({ initialBudgets, currentMonth: initialMonth, curre
                     {editingBudget ? (
                       <Input
                         disabled
-                        value={CATEGORY_META[editingBudget.category as Category]?.label || editingBudget.category}
+                        value={availableCategories.bySlug[editingBudget.category]?.name || editingBudget.category}
                         className="bg-[var(--muted)]/50 rounded-xl h-10 text-sm font-semibold text-[var(--foreground)]"
                       />
                     ) : (
@@ -473,11 +473,11 @@ export function BudgetClient({ initialBudgets, currentMonth: initialMonth, curre
                               <SelectValue placeholder="Pilih kategori..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {expenseCategories.map((cat) => (
-                                <SelectItem key={cat.value} value={cat.value}>
+                              {availableCategories.expense.map((cat) => (
+                                <SelectItem key={`${cat.type}-${cat.slug}`} value={cat.slug}>
                                   <span className="flex items-center gap-2 text-xs sm:text-sm">
                                     <span>{cat.emoji}</span>
-                                    <span>{cat.label}</span>
+                                    <span>{cat.name}</span>
                                   </span>
                                 </SelectItem>
                               ))}

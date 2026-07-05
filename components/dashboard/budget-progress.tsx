@@ -4,12 +4,17 @@ import { motion } from "framer-motion";
 import { Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { CATEGORY_META } from "@/lib/mock-data";
 import { formatCurrency, cn } from "@/lib/utils";
 import type { BudgetItemRow } from "@/lib/supabase/types";
-import type { Category } from "@/lib/types";
+import type { AvailableTransactionCategories } from "@/lib/supabase/queries";
 
-export function BudgetProgress({ budgetItems }: { budgetItems: BudgetItemRow[] }) {
+export function BudgetProgress({
+  budgetItems,
+  availableCategories,
+}: {
+  budgetItems: BudgetItemRow[];
+  availableCategories: AvailableTransactionCategories;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -31,7 +36,7 @@ export function BudgetProgress({ budgetItems }: { budgetItems: BudgetItemRow[] }
               const pct = Math.min(Math.round((item.spent / item.limit) * 100), 999);
               const isOver = pct >= 100;
               const isWarning = pct >= 80 && pct < 100;
-              const meta = CATEGORY_META[item.category as Category] || { emoji: "📝", label: item.category };
+              const meta = availableCategories.bySlug[item.category] || { emoji: "📝", name: item.category };
 
               const barColor = isOver ? "#f43f5e" : isWarning ? "#f59e0b" : "var(--primary)";
               const pctColor = isOver
@@ -55,7 +60,7 @@ export function BudgetProgress({ budgetItems }: { budgetItems: BudgetItemRow[] }
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-base leading-none shrink-0">{meta.emoji}</span>
-                      <span className="text-sm font-medium text-[var(--foreground)] truncate">{meta.label}</span>
+                      <span className="text-sm font-medium text-[var(--foreground)] truncate">{meta.name}</span>
                       {(isOver || isWarning) && (
                         <span
                           className={cn(

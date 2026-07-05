@@ -24,6 +24,21 @@ begin
     (seed_user_id::text || '-cash-1',    seed_user_id, 'Uang Tunai',       'Tunai',              'cash',    null,   2000000,  '#10b981', '💵',                array['#10b981', '#059669'])
   on conflict (id) do nothing;
 
+  insert into public.categories (id, user_id, slug, name, type, emoji, color, is_system)
+  values
+    (seed_user_id::text || '-cat-salary',        seed_user_id, 'salary',        'Gaji',         'income',  '💰', '#10b981', true),
+    (seed_user_id::text || '-cat-freelance',     seed_user_id, 'freelance',     'Freelance',    'income',  '💼', '#8b5cf6', true),
+    (seed_user_id::text || '-cat-investment',    seed_user_id, 'investment',    'Investasi',    'income',  '📈', '#06b6d4', true),
+    (seed_user_id::text || '-cat-income-other',  seed_user_id, 'other',         'Lainnya',      'income',  '📦', '#94a3b8', true),
+    (seed_user_id::text || '-cat-food',          seed_user_id, 'food',          'Makanan',      'expense', '🍔', '#10b981', true),
+    (seed_user_id::text || '-cat-transport',     seed_user_id, 'transport',     'Transportasi', 'expense', '🚗', '#6366f1', true),
+    (seed_user_id::text || '-cat-shopping',      seed_user_id, 'shopping',      'Belanja',      'expense', '🛍️', '#f59e0b', true),
+    (seed_user_id::text || '-cat-bills',         seed_user_id, 'bills',         'Tagihan',      'expense', '📄', '#3b82f6', true),
+    (seed_user_id::text || '-cat-entertainment', seed_user_id, 'entertainment', 'Hiburan',      'expense', '🎮', '#ec4899', true),
+    (seed_user_id::text || '-cat-health',        seed_user_id, 'health',        'Kesehatan',    'expense', '💊', '#14b8a6', true),
+    (seed_user_id::text || '-cat-expense-other', seed_user_id, 'other',         'Lainnya',      'expense', '📦', '#94a3b8', true)
+  on conflict (user_id, type, slug) do nothing;
+
   insert into public.transactions (id, user_id, name, amount, type, category, date, notes, bank_account_id)
   values
     (seed_user_id::text || '-tx-1',  seed_user_id, 'Gaji Bulanan',          15000000, 'income',  'salary',        '2026-06-20', 'Gaji bulan Juni', seed_user_id::text || '-bca-1'),

@@ -16,6 +16,7 @@ import {
   EyeOff,
   AlertCircle,
   Loader2,
+  PencilLine,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -31,7 +32,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { BANK_PRESETS } from "@/lib/mock-data";
 import { formatCurrency, cn } from "@/lib/utils";
-import { addBankAccount } from "@/app/actions";
+import { addBankAccount, updateBankAccountBalance } from "@/app/actions";
 import type { BankAccountType, BankPreset } from "@/lib/types";
 import type { BankAccountRow } from "@/lib/supabase/types";
 
@@ -103,6 +104,141 @@ function AccountCard({ account, hidden }: { account: BankAccountRow; hidden: boo
         </div>
       </div>
     </div>
+  );
+}
+
+function EditBalanceDialog({
+  account,
+  open,
+  onOpenChange,
+}: {
+  account: BankAccountRow | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [rawBalance, setRawBalance] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    if (!account || !open) {
+      setRawBalance("");
+      setErrorMsg("");
+      setIsLoading(false);
+      return;
+    }
+
+    setRawBalance(String(Math.max(0, Math.trunc(Number(account.balance) || 0))));
+    setErrorMsg("");
+  }, [account, open]);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!account) return;
+
+    const balance = Number(rawBalance || "0");
+    if (!Number.isFinite(balance) || balance < 0) {
+      setErrorMsg("Nominal saldo tidak valid.");
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMsg("");
+
+    try {
+      const result = await updateBankAccountBalance({
+        id: account.id,
+        balance,
+      });
+
+      if (!result.success) {
+        setErrorMsg(result.error || "Gagal memperbarui saldo.");
+        setIsLoading(false);
+        return;
+      }
+
+      onOpenChange(false);
+    } catch {
+      setErrorMsg("Terjadi kesalahan jaringan. Coba lagi.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent showHandle className="max-w-md p-0 overflow-hidden rounded-t-3xl sm:rounded-2xl">
+        <DialogHeader className="p-5 pb-3 border-b border-[var(--card-border)]/40">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
+              <PencilLine className="h-4 w-4" />
+            </div>
+            <div>
+              <DialogTitle className="text-sm sm:text-base font-semibold">Ubah Nominal Saldo</DialogTitle>
+              <DialogDescription className="text-[11px] sm:text-xs mt-0.5">
+                Revisi saldo aktual untuk rekening atau dompet yang dipilih.
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+          {account && (
+            <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--muted)]/20 p-3">
+              <p className="text-xs font-semibold text-[var(--foreground)]">{account.name}</p>
+              <p className="mt-0.5 text-[11px] text-[var(--muted-foreground)]">{account.bank_name}</p>
+              <p className="mt-2 text-[11px] text-[var(--muted-foreground)]">
+                Saldo saat ini: <span className="font-semibold text-[var(--foreground)]">{formatCurrency(account.balance)}</span>
+              </p>
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="flex items-center gap-2 rounded-xl bg-rose-500/10 border border-rose-500/20 px-3 py-2.5 text-xs text-rose-600">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {errorMsg}
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-balance" className="text-xs font-medium text-[var(--muted-foreground)]">
+              Nominal saldo terbaru
+            </Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-[var(--muted-foreground)]">Rp</span>
+              <Input
+                id="edit-balance"
+                inputMode="numeric"
+                placeholder="0"
+                value={rawBalance ? Number(rawBalance).toLocaleString("id-ID") : ""}
+                onChange={(e) => setRawBalance(e.target.value.replace(/\D/g, ""))}
+                className="h-11 pl-9 text-right font-bold text-sm rounded-xl tabular-nums"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <Button
+              type="button"
+              variant="ghost"
+              className="flex-1 h-11 rounded-xl"
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+            >
+              Batal
+            </Button>
+            <Button type="submit" className="flex-1 h-11 rounded-xl" disabled={isLoading}>
+              {isLoading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Menyimpan...</>
+              ) : (
+                <><PencilLine className="h-4 w-4" /> Simpan Saldo</>
+              )}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -365,6 +501,7 @@ export function BankAccountsWidget({ accounts }: { accounts: BankAccountRow[] })
   const [addOpen, setAddOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<BankAccountRow | null>(null);
 
   const displayedAccounts = showAll ? accounts : accounts.slice(0, 3);
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0);
@@ -500,7 +637,16 @@ export function BankAccountsWidget({ accounts }: { accounts: BankAccountRow[] })
                     <p className="text-[9px] font-medium text-[var(--muted-foreground)] mt-0.5">{pct}% porsi</p>
                   </div>
 
-                  <ChevronRight className="h-3.5 w-3.5 text-[var(--muted-foreground)] opacity-0 md:group-hover:opacity-100 transition-opacity ml-1 hidden sm:block" />
+                  <button
+                    type="button"
+                    onClick={() => setEditingAccount(account)}
+                    className="ml-1 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                    aria-label={`Ubah saldo ${account.name}`}
+                  >
+                    <PencilLine className="h-3.5 w-3.5" />
+                  </button>
+
+                  <ChevronRight className="h-3.5 w-3.5 text-[var(--muted-foreground)] opacity-0 md:group-hover:opacity-100 transition-opacity hidden sm:block" />
                 </div>
               );
             })}
@@ -509,6 +655,13 @@ export function BankAccountsWidget({ accounts }: { accounts: BankAccountRow[] })
       </Card>
 
       <AddAccountDialog open={addOpen} onOpenChange={setAddOpen} />
+      <EditBalanceDialog
+        account={editingAccount}
+        open={!!editingAccount}
+        onOpenChange={(open) => {
+          if (!open) setEditingAccount(null);
+        }}
+      />
     </motion.div>
   );
 }
