@@ -576,3 +576,100 @@ export async function upsertBudgetItem(category: string, limit: number) {
   revalidatePath("/dashboard/budget");
   return { success: true };
 }
+
+// ── Savings Goals Actions ───────────────────────────────────────────────────
+
+export async function addSavingsGoal(values: {
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  target_date: string;
+  emoji: string;
+}) {
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("savings_goals")
+    .insert({
+      id: crypto.randomUUID(),
+      user_id: userId,
+      name: values.name,
+      target_amount: values.target_amount,
+      current_amount: values.current_amount,
+      target_date: values.target_date,
+      emoji: values.emoji,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true, data };
+}
+
+export async function updateSavingsGoal(id: string, values: {
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  target_date: string;
+  emoji: string;
+}) {
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("savings_goals")
+    .update({
+      name: values.name,
+      target_amount: values.target_amount,
+      current_amount: values.current_amount,
+      target_date: values.target_date,
+      emoji: values.emoji,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true, data };
+}
+
+export async function deleteSavingsGoal(id: string) {
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from("savings_goals")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}

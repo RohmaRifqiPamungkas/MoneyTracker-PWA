@@ -1,13 +1,28 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Flag } from "lucide-react";
+import { Flag, Plus, PencilLine } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { GoalDialog } from "./goal-dialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import type { SavingsGoalRow } from "@/lib/supabase/types";
 
 export function GoalsTracker({ goals }: { goals: SavingsGoalRow[] }) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<SavingsGoalRow | null>(null);
+
+  const openAddDialog = () => {
+    setEditingGoal(null);
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (goal: SavingsGoalRow) => {
+    setEditingGoal(goal);
+    setDialogOpen(true);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -16,11 +31,22 @@ export function GoalsTracker({ goals }: { goals: SavingsGoalRow[] }) {
     >
       <Card className="shadow-sm border-[var(--card-border)]">
         <CardHeader className="p-4 sm:p-6 pb-3">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold">
-            <Flag className="h-4 w-4 text-emerald-500" />
-            Target Tabungan
-          </CardTitle>
-          <CardDescription className="text-xs">Progres menuju tujuan keuanganmu</CardDescription>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                <Flag className="h-4 w-4 text-emerald-500" />
+                Target Tabungan
+              </CardTitle>
+              <CardDescription className="text-xs mt-0.5">Progres menuju tujuan keuanganmu</CardDescription>
+            </div>
+            <button
+              onClick={openAddDialog}
+              className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--muted)]/50 text-[var(--muted-foreground)] transition-colors hover:bg-emerald-500 hover:text-white"
+              aria-label="Tambah Target Baru"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
         </CardHeader>
 
         <CardContent className="pt-0 pb-4">
@@ -41,7 +67,7 @@ export function GoalsTracker({ goals }: { goals: SavingsGoalRow[] }) {
                   )}
                 >
                   {/* Row 1: Emoji + Nama + Tanggal Target di Kiri | Persentase di Kanan */}
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3 group/goal relative">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-lg leading-none select-none shrink-0">{goal.emoji}</span>
                       <div className="min-w-0">
@@ -55,7 +81,21 @@ export function GoalsTracker({ goals }: { goals: SavingsGoalRow[] }) {
                     </div>
 
                     {/* Persentase ditaruh di atas kanan agar simetris */}
-                    <div className="shrink-0 ml-auto">
+                    <div className="shrink-0 ml-auto flex items-center gap-2">
+                      <button
+                        onClick={() => openEditDialog(goal)}
+                        className="h-6 w-6 hidden items-center justify-center rounded-md bg-[var(--muted)] text-[var(--muted-foreground)] transition-colors hover:bg-emerald-500 hover:text-white sm:flex md:opacity-0 md:group-hover/goal:opacity-100"
+                        aria-label="Edit Target"
+                      >
+                        <PencilLine className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => openEditDialog(goal)}
+                        className="h-6 w-6 flex items-center justify-center rounded-md bg-[var(--muted)] text-[var(--muted-foreground)] sm:hidden"
+                        aria-label="Edit Target"
+                      >
+                        <PencilLine className="h-3 w-3" />
+                      </button>
                       <span className={cn(
                         "text-xs sm:text-sm font-bold tabular-nums w-8 text-right block",
                         done ? "text-emerald-500" : "text-[var(--foreground)]"
@@ -88,6 +128,15 @@ export function GoalsTracker({ goals }: { goals: SavingsGoalRow[] }) {
           </div>
         </CardContent>
       </Card>
+
+      <GoalDialog
+        goal={editingGoal}
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setEditingGoal(null);
+        }}
+      />
     </motion.div>
   );
 }
