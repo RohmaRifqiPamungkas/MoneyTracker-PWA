@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, getTrendBg } from "@/lib/utils";
 import type { FinancialSummary } from "@/lib/types";
+import { usePrivacy } from "@/hooks/use-privacy";
 
 interface SummaryCardProps {
   title: string;
@@ -32,70 +33,77 @@ function SummaryCard({ title, value, growth, subtitle, icon, accentColor, action
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay }}
+      transition={{ type: "spring", stiffness: 400, damping: 30, delay }}
+      whileHover={{ y: -4 }}
+      className="h-full"
     >
-      <Card className="relative overflow-hidden group h-full">
-        {/* Subtle accent line on top */}
-        <div
-          className="absolute top-0 left-0 right-0 h-1 opacity-80"
-          style={{ backgroundColor: accentColor }}
-        />
+      <Card 
+        className="relative overflow-hidden group h-full border-0 transition-all duration-300 text-white"
+        style={{ 
+          background: `linear-gradient(135deg, color-mix(in srgb, ${accentColor} 80%, #1e1e2f), color-mix(in srgb, ${accentColor} 40%, #0b0b12))`
+        }}
+      >
+        {/* Decorative background elements for credit card look */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/20 rounded-full blur-xl -ml-5 -mb-5 pointer-events-none" />
 
-        {/* Hover subtle glow */}
-        <div
-          className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500 pointer-events-none"
-          style={{
-            background: `radial-gradient(circle at top right, ${accentColor}, transparent 70%)`
-          }}
-        />
-
-        <CardContent className="p-3.5 sm:p-5 flex flex-col justify-between h-full">
-          <div>
-            {/* Header: Judul + Icon */}
-            <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
-              <p className="text-[11px] sm:text-[13px] font-medium text-[var(--muted-foreground)] tracking-wide truncate">
+        <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full relative z-10 min-h-[150px] sm:min-h-[170px]">
+          {/* Top row: Title and Icon/Action */}
+          <div className="flex items-start justify-between w-full mb-4">
+            <div className="flex flex-col">
+              <span className="text-[10px] sm:text-xs font-semibold text-white/80 uppercase tracking-widest drop-shadow-sm">
                 {title}
-              </p>
-              <div className="flex items-center gap-2 shrink-0">
-                {action}
-                <div
-                  className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl border border-[var(--card-border)] bg-[var(--card)] relative overflow-hidden shrink-0"
-                  style={{ color: accentColor }}
-                >
-                  <div
-                    className="absolute inset-0 opacity-[0.08]"
-                    style={{ backgroundColor: accentColor }}
-                  />
-                  {/* Menyesuaikan ukuran icon di mobile */}
-                  <div className="h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center [&>svg]:h-full [&>svg]:w-full">
-                    {icon}
-                  </div>
+              </span>
+              {/* Fake credit card chip */}
+              <div className="mt-2.5 w-8 h-6 sm:w-10 sm:h-7 bg-yellow-500/30 rounded sm:rounded-md border border-yellow-300/40 flex items-center justify-center overflow-hidden relative shadow-sm">
+                 <div className="absolute inset-0 bg-gradient-to-br from-yellow-200/20 to-transparent"></div>
+                 <div className="w-full h-px bg-yellow-300/30 absolute top-1/2"></div>
+                 <div className="h-full w-px bg-yellow-300/30 absolute left-[30%]"></div>
+                 <div className="h-full w-px bg-yellow-300/30 absolute right-[30%]"></div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2.5">
+              {action && (
+                <div className="text-white/80 hover:text-white transition-colors">
+                  {action}
+                </div>
+              )}
+              <div className="p-1.5 sm:p-2 rounded-lg bg-white/15 backdrop-blur-md border border-white/20 text-white shadow-sm">
+                <div className="h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center [&>svg]:h-full [&>svg]:w-full">
+                  {icon}
                 </div>
               </div>
             </div>
-
-            {/* Value / Nominal */}
-            <h3 className="text-base sm:text-2xl font-bold text-[var(--foreground)] tabular-nums tracking-tight break-all sm:break-normal line-clamp-1">
-              {hidden ? "Rp ••••••" : isMounted ? formatCurrency(value) : "Rp0"}
-            </h3>
           </div>
 
-          {/* Footer: Trend Badge & Subtitle */}
-          <div className="flex flex-col xs:flex-row xs:items-center gap-1.5 sm:gap-2 mt-3 pt-2 border-t border-[var(--card-border)]/20 sm:border-none">
-            <Badge
-              variant="outline"
-              className={`px-1.5 py-0.5 border-transparent shadow-none font-semibold w-fit shrink-0 ${getTrendBg(growth)}`}
-            >
-              <span className="flex items-center gap-0.5 text-[10px] sm:text-xs">
-                {isPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                {Math.abs(growth)}%
+          {/* Middle: Value / Balance (Card Number style) */}
+          <div className="mt-auto mb-3 sm:mb-4">
+             <h3 className="text-xl sm:text-2xl lg:text-[1.7rem] font-bold text-white tracking-widest font-mono drop-shadow-md line-clamp-1">
+               {hidden ? "•••• •••• ••••" : isMounted ? formatCurrency(value) : "Rp0"}
+             </h3>
+          </div>
+
+          {/* Bottom row: Subtitle and Badge */}
+          <div className="flex items-end justify-between w-full">
+            <div className="flex flex-col">
+              <span className="text-[8px] sm:text-[9px] text-white/50 uppercase tracking-widest mb-0.5">Valid Thru</span>
+              <span className="text-[10px] sm:text-[11px] text-white/90 font-medium tracking-wide truncate max-w-[100px] sm:max-w-[140px] uppercase">
+                {subtitle || "LIFETIME"}
               </span>
-            </Badge>
-            {subtitle && (
-              <span className="text-[10px] sm:text-[11px] text-[var(--muted-foreground)] truncate">
-                {subtitle}
-              </span>
-            )}
+            </div>
+            
+            <div className="flex items-center">
+              <Badge
+                variant="outline"
+                className={`px-1.5 py-0.5 border-white/20 bg-black/20 text-white shadow-none font-semibold w-fit shrink-0 backdrop-blur-md`}
+              >
+                <span className="flex items-center gap-0.5 text-[10px] sm:text-xs">
+                  {isPositive ? <ArrowUpRight className="h-3 w-3 text-emerald-400" /> : <ArrowDownRight className="h-3 w-3 text-rose-400" />}
+                  {Math.abs(growth)}%
+                </span>
+              </Badge>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -104,7 +112,7 @@ function SummaryCard({ title, value, growth, subtitle, icon, accentColor, action
 }
 
 export function FinancialOverview({ summary }: { summary: FinancialSummary }) {
-  const [hidden, setHidden] = useState(false);
+  const { hidden, toggleHidden } = usePrivacy();
 
   return (
     <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">
@@ -117,8 +125,8 @@ export function FinancialOverview({ summary }: { summary: FinancialSummary }) {
           accentColor="#10b981"
           action={(
             <button
-              onClick={() => setHidden((value) => !value)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--card-border)] bg-[var(--card)]/70 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+              onClick={toggleHidden}
+              className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-white/20 bg-black/20 text-white/80 transition-colors hover:bg-black/40 hover:text-white backdrop-blur-md"
               aria-label={hidden ? "Tampilkan saldo ringkasan" : "Sembunyikan saldo ringkasan"}
             >
               {hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
