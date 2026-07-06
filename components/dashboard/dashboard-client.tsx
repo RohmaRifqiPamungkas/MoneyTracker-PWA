@@ -177,45 +177,46 @@ export function DashboardClient({
       <main className="mx-auto max-w-screen-xl px-4 py-5 sm:px-6 lg:px-8">
 
         {/* ── Filter Multi-Month Dropdown ───────────────────────── */}
-        {/* ── Filter Multi-Month Dropdown (Interactive Version) ───────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-sm backdrop-blur-md transition-all duration-200 hover:border-emerald-500/20"
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--card-border)] bg-[var(--card)]/80 p-4 shadow-sm backdrop-blur-xl transition-all duration-300 hover:border-emerald-500/40 hover:shadow-md"
         >
-          <div className="flex items-center gap-3">
-            <div className="relative rounded-xl bg-emerald-500/10 p-2.5 text-emerald-500 transition-transform duration-300 hover:scale-105">
+          <div className="flex items-center gap-4">
+            <motion.div 
+              className="relative rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 p-3 text-emerald-500 shadow-inner"
+            >
               <Calendar className="h-5 w-5" />
               {/* Efek denyut halus di belakang ikon kalender */}
               <span className="absolute inset-0 rounded-xl bg-emerald-500/20 animate-ping opacity-20 pointer-events-none" />
-            </div>
+            </motion.div>
             <div className="flex flex-col">
-              <span className="text-[11px] font-medium tracking-wider uppercase text-[var(--muted-foreground)]">
+              <span className="text-[11px] font-bold tracking-wider uppercase text-[var(--muted-foreground)]">
                 Periode Laporan
               </span>
-              <span className="text-base font-bold text-[var(--foreground)] tracking-tight">
+              <span className="text-lg font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-[var(--foreground)] to-[var(--muted-foreground)] tracking-tight">
                 {MONTHS[currentMonth].label} {currentYear}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 sm:w-auto w-full">
+          <div className="flex items-center gap-3 sm:w-auto w-full">
             {/* Selector Bulan Menggunakan UI Component */}
-            <div className="flex-1 sm:flex-initial min-w-[120px]">
+            <div className="flex-1 sm:flex-initial min-w-[130px]">
               <Select
                 value={String(currentMonth)}
                 onValueChange={(val) => handlePeriodChange(Number(val), currentYear)}
               >
-                <SelectTrigger className="w-full rounded-xl border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] outline-none transition-all duration-150 hover:bg-[var(--muted)] focus:ring-2 focus:ring-emerald-500/30">
+                <SelectTrigger className="w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)]/50 backdrop-blur-md px-4 py-2.5 text-xs font-semibold text-[var(--foreground)] outline-none transition-all duration-200 hover:bg-[var(--muted)] hover:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/20 shadow-sm">
                   <SelectValue placeholder="Pilih Bulan" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-[var(--card-border)] bg-[var(--card)] shadow-xl max-h-[240px]">
+                <SelectContent className="rounded-xl border-[var(--card-border)] bg-[var(--card)]/90 backdrop-blur-xl shadow-2xl max-h-[240px]">
                   {MONTHS.map((m) => (
                     <SelectItem
                       key={m.value}
                       value={String(m.value)}
-                      className="text-xs font-medium rounded-lg cursor-pointer transition-colors focus:bg-emerald-500/10 focus:text-emerald-500"
+                      className="text-xs font-semibold rounded-lg cursor-pointer transition-colors focus:bg-emerald-500/15 focus:text-emerald-500"
                     >
                       {m.label}
                     </SelectItem>
@@ -225,20 +226,20 @@ export function DashboardClient({
             </div>
 
             {/* Selector Tahun Menggunakan UI Component */}
-            <div className="flex-1 sm:flex-initial min-w-[90px]">
+            <div className="flex-1 sm:flex-initial min-w-[100px]">
               <Select
                 value={String(currentYear)}
                 onValueChange={(val) => handlePeriodChange(currentMonth, Number(val))}
               >
-                <SelectTrigger className="w-full rounded-xl border-[var(--card-border)] bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] outline-none transition-all duration-150 hover:bg-[var(--muted)] focus:ring-2 focus:ring-emerald-500/30">
+                <SelectTrigger className="w-full rounded-xl border border-[var(--card-border)] bg-[var(--background)]/50 backdrop-blur-md px-4 py-2.5 text-xs font-semibold text-[var(--foreground)] outline-none transition-all duration-200 hover:bg-[var(--muted)] hover:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/20 shadow-sm">
                   <SelectValue placeholder="Pilih Tahun" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-[var(--card-border)] bg-[var(--card)] shadow-xl">
+                <SelectContent className="rounded-xl border-[var(--card-border)] bg-[var(--card)]/90 backdrop-blur-xl shadow-2xl">
                   {YEARS.map((y) => (
                     <SelectItem
                       key={y}
                       value={String(y)}
-                      className="text-xs font-medium rounded-lg cursor-pointer transition-colors focus:bg-emerald-500/10 focus:text-emerald-500"
+                      className="text-xs font-semibold rounded-lg cursor-pointer transition-colors focus:bg-emerald-500/15 focus:text-emerald-500"
                     >
                       {y}
                     </SelectItem>
@@ -316,10 +317,10 @@ export function DashboardClient({
             {activeTab === "stats" && (
               <motion.div
                 key="stats"
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
                 className="flex flex-col gap-5"
               >
                 <CashflowChart data={monthlyData} />
@@ -331,10 +332,10 @@ export function DashboardClient({
             {activeTab === "wallet" && (
               <motion.div
                 key="wallet"
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
                 className="flex flex-col gap-5"
               >
                 <QuickTransactionForm bankAccounts={bankAccounts} availableCategories={availableCategories} />
@@ -346,10 +347,10 @@ export function DashboardClient({
             {activeTab === "plans" && (
               <motion.div
                 key="plans"
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
                 className="flex flex-col gap-5"
               >
                 <BudgetProgress budgetItems={budgetItems} availableCategories={availableCategories} />

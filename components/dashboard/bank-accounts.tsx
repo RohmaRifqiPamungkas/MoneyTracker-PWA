@@ -35,6 +35,7 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { addBankAccount, updateBankAccountBalance } from "@/app/actions";
 import type { BankAccountType, BankPreset } from "@/lib/types";
 import type { BankAccountRow } from "@/lib/supabase/types";
+import { usePrivacy } from "@/hooks/use-privacy";
 
 /* ── Add-account schema ────────────────────────────────── */
 const addSchema = z.object({
@@ -58,52 +59,72 @@ function AccountCard({ account, hidden }: { account: BankAccountRow; hidden: boo
   const isImgLogo = account.logo?.startsWith("/");
 
   return (
-    <div
-      className="relative shrink-0 w-48 sm:w-52 h-[125px] sm:h-[130px] rounded-2xl overflow-hidden cursor-pointer group snap-start"
+    <motion.div
+      whileHover={{ y: -4 }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      className="relative shrink-0 w-60 sm:w-64 h-[140px] sm:h-[150px] rounded-2xl overflow-hidden cursor-pointer group snap-start border-0 transition-all duration-300 text-white"
       style={{
-        background: `linear-gradient(135deg, ${account.gradient[0]}, ${account.gradient[1]})`,
+        background: `linear-gradient(135deg, color-mix(in srgb, ${account.gradient[0]} 90%, #1e1e2f), color-mix(in srgb, ${account.gradient[1]} 60%, #0b0b12))`,
       }}
     >
-      {/* Shine overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/15 to-transparent pointer-events-none" />
+      {/* Decorative background elements for credit card look */}
+      <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-8 -mt-8 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-20 h-20 bg-black/20 rounded-full blur-xl -ml-4 -mb-4 pointer-events-none" />
 
-      {/* Circle watermark */}
-      <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-20 bg-white" />
-      <div className="absolute -right-2 top-8 h-16 w-16 rounded-full opacity-10 bg-white" />
+      {/* Circle watermark (subtle) */}
+      <div className="absolute -right-6 -bottom-6 h-24 w-24 rounded-full border-[1.5px] border-white/10 pointer-events-none opacity-50" />
+      <div className="absolute -right-2 -bottom-2 h-16 w-16 rounded-full border border-white/5 pointer-events-none opacity-50" />
 
-      <div className="relative h-full p-3.5 sm:p-4 flex flex-col justify-between">
+      <div className="relative h-full p-4 flex flex-col justify-between z-10">
         {/* Top row */}
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[10px] sm:text-[11px] font-medium text-white/70 leading-none truncate">{account.bank_name}</p>
-            <p className="text-xs sm:text-sm font-semibold text-white mt-1 leading-tight truncate">{account.name}</p>
+          {/* Fake credit card chip */}
+          <div className="w-8 h-6 bg-yellow-500/30 rounded border border-yellow-300/40 flex items-center justify-center overflow-hidden relative shadow-sm">
+             <div className="absolute inset-0 bg-gradient-to-br from-yellow-200/20 to-transparent"></div>
+             <div className="w-full h-px bg-yellow-300/30 absolute top-1/2"></div>
+             <div className="h-full w-px bg-yellow-300/30 absolute left-[30%]"></div>
+             <div className="h-full w-px bg-yellow-300/30 absolute right-[30%]"></div>
           </div>
 
-          {/* UBAHAN 1: Render Gambar Logo Bank di Kartu Utama */}
+          {/* Logo Bank */}
           {isImgLogo ? (
-            <div className="bg-white/95 p-1 rounded-lg flex items-center justify-center w-9 h-6 shadow-sm shrink-0">
+            <div className="bg-white/95 p-1 rounded-md flex items-center justify-center w-9 h-6 shadow-sm shrink-0">
               <img src={account.logo} alt={account.bank_name} className="max-h-full max-w-full object-contain" />
             </div>
           ) : (
-            <span className="text-lg sm:text-xl leading-none shrink-0">{account.logo}</span>
+            <span className="text-xl leading-none shrink-0 drop-shadow-sm">{account.logo}</span>
           )}
         </div>
 
-        {/* Bottom row */}
-        <div>
-          <p className="text-[9px] sm:text-[10px] text-white/60 mb-0.5 flex items-center gap-1">
-            <TypeIcon type={account.type as BankAccountType} size={10} />
-            <span className="capitalize">{account.type}</span>
-            {account.account_number && (
-              <span className="opacity-80">·· {account.account_number}</span>
-            )}
-          </p>
-          <p className="text-sm sm:text-base font-bold text-white tracking-tight tabular-nums">
-            {hidden ? "Rp ••••••" : formatCurrency(account.balance, true)}
+        {/* Middle row: Balance (Card Number style) */}
+        <div className="mt-2 mb-1">
+          <p className="text-lg sm:text-xl font-bold text-white tracking-widest tabular-nums font-mono drop-shadow-md">
+            {hidden ? "•••• •••• ••••" : formatCurrency(account.balance, true)}
           </p>
         </div>
+
+        {/* Bottom row */}
+        <div className="flex items-end justify-between gap-2 w-full mt-auto">
+          <div className="min-w-0 flex flex-col">
+            <span className="text-[8px] sm:text-[9px] text-white/60 uppercase tracking-widest mb-0.5">Card Holder</span>
+            <p className="text-[10px] sm:text-xs font-semibold text-white/95 truncate uppercase tracking-wide">
+              {account.name}
+            </p>
+          </div>
+          <div className="flex flex-col items-end shrink-0">
+            <span className="text-[8px] sm:text-[9px] text-white/60 uppercase tracking-widest mb-0.5 text-right">{account.bank_name}</span>
+            <div className="flex items-center gap-1 text-[9px] sm:text-[10px] text-white/90 font-medium bg-black/20 px-1.5 py-0.5 rounded backdrop-blur-md">
+              <TypeIcon type={account.type as BankAccountType} size={10} />
+              {account.account_number ? (
+                <span className="tracking-widest">··{account.account_number.slice(-4)}</span>
+              ) : (
+                <span className="capitalize">{account.type}</span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -499,7 +520,7 @@ function PresetButton({ preset, selected, onSelect }: { preset: BankPreset; sele
 /* ── Main widget ───────────────────────────────────────── */
 export function BankAccountsWidget({ accounts }: { accounts: BankAccountRow[] }) {
   const [addOpen, setAddOpen] = useState(false);
-  const [hidden, setHidden] = useState(false);
+  const { hidden, toggleHidden } = usePrivacy();
   const [showAll, setShowAll] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccountRow | null>(null);
 
@@ -527,7 +548,7 @@ export function BankAccountsWidget({ accounts }: { accounts: BankAccountRow[] })
               </p>
             </div>
             <button
-              onClick={() => setHidden((h) => !h)}
+              onClick={toggleHidden}
               className="flex h-8 w-8 items-center justify-center rounded-xl text-[var(--muted-foreground)] bg-[var(--muted)]/50 hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors cursor-pointer"
               aria-label={hidden ? "Tampilkan saldo" : "Sembunyikan saldo"}
             >
@@ -552,14 +573,14 @@ export function BankAccountsWidget({ accounts }: { accounts: BankAccountRow[] })
 
         <CardContent className="p-4 sm:p-6 pt-0">
           {/* Horizontal scroll carousel */}
-          <div className="flex gap-3 overflow-x-auto pb-4 px-1 -mx-1 scrollbar-none snap-x snap-mandatory">
+          <div className="flex gap-3 overflow-x-auto overflow-y-visible py-4 -my-4 px-1 -mx-1 scrollbar-none snap-x snap-mandatory min-h-[160px]">
             {displayedAccounts.map((account, i) => (
               <motion.div
                 key={account.id}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: i * 0.04, duration: 0.25 }}
-                className="snap-start"
+                className="snap-start shrink-0"
               >
                 <AccountCard account={account} hidden={hidden} />
               </motion.div>
@@ -568,7 +589,7 @@ export function BankAccountsWidget({ accounts }: { accounts: BankAccountRow[] })
             {accounts.length > 3 && (
               <button
                 onClick={() => setShowAll(!showAll)}
-                className="snap-start shrink-0 w-28 h-[125px] sm:h-[130px] rounded-2xl border border-dashed border-[var(--card-border)] bg-[var(--muted)]/10 flex flex-col items-center justify-center gap-1 text-[var(--muted-foreground)] hover:border-emerald-500/40 hover:text-emerald-500 hover:bg-emerald-500/5 transition-all duration-200 cursor-pointer"
+                className="snap-start shrink-0 w-28 h-[135px] sm:h-[150px] rounded-2xl border border-dashed border-[var(--card-border)] bg-[var(--muted)]/10 flex flex-col items-center justify-center gap-1 text-[var(--muted-foreground)] hover:border-emerald-500/40 hover:text-emerald-500 hover:bg-emerald-500/5 transition-all duration-200 cursor-pointer"
               >
                 <span className="text-xs font-semibold px-2">{showAll ? "Tutup" : "Lihat Semua"}</span>
               </button>
@@ -576,7 +597,7 @@ export function BankAccountsWidget({ accounts }: { accounts: BankAccountRow[] })
 
             <button
               onClick={() => setAddOpen(true)}
-              className="snap-start shrink-0 w-28 h-[125px] sm:h-[130px] rounded-2xl border border-dashed border-[var(--card-border)] bg-[var(--muted)]/10 flex flex-col items-center justify-center gap-2 text-[var(--muted-foreground)] hover:border-emerald-500/40 hover:text-emerald-500 hover:bg-emerald-500/5 transition-all duration-200 cursor-pointer"
+              className="snap-start shrink-0 w-28 h-[135px] sm:h-[150px] rounded-2xl border border-dashed border-[var(--card-border)] bg-[var(--muted)]/10 flex flex-col items-center justify-center gap-2 text-[var(--muted-foreground)] hover:border-emerald-500/40 hover:text-emerald-500 hover:bg-emerald-500/5 transition-all duration-200 cursor-pointer"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--muted)] shadow-sm">
                 <Plus className="h-4 w-4" />
@@ -586,7 +607,7 @@ export function BankAccountsWidget({ accounts }: { accounts: BankAccountRow[] })
           </div>
 
           {/* Account list view */}
-          <div className="mt-2 space-y-1 max-h-[220px] overflow-y-auto pr-0.5 custom-scrollbar">
+          <div className="mt-4 space-y-1 max-h-[220px] overflow-y-auto pr-0.5 custom-scrollbar">
             {accounts.map((account) => {
               const pct = totalBalance > 0 ? Math.round((account.balance / totalBalance) * 100) : 0;
               const isImgLogo = account.logo?.startsWith("/");

@@ -27,14 +27,17 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ bankAccounts, availableCategories }: DashboardHeaderProps) {
-  const [isOnline, setIsOnline] = useState(() =>
-    typeof navigator === "undefined" ? true : navigator.onLine
-  );
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [isMounted, setIsMounted] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [defaultType, setDefaultType] = useState<DefaultType>("expense");
 
   useEffect(() => {
+    setIsMounted(true);
+    setIsOnline(navigator.onLine);
+    setCurrentTime(new Date());
+
     const on = () => setIsOnline(true);
     const off = () => setIsOnline(false);
     window.addEventListener("online", on);
@@ -70,19 +73,19 @@ export function DashboardHeader({ bankAccounts, availableCategories }: Dashboard
                     {getGreeting()}, <span className="text-emerald-500">Pamungkas</span> 👋
                   </h1>
                   <Badge
-                    variant={isOnline ? "default" : "destructive"}
+                    variant={isMounted && !isOnline ? "destructive" : "default"}
                     className="hidden lg:inline-flex shrink-0 items-center gap-1 text-[10px]"
                   >
-                    {isOnline ? (
-                      <Wifi className="h-2.5 w-2.5" />
-                    ) : (
+                    {isMounted && !isOnline ? (
                       <WifiOff className="h-2.5 w-2.5" />
+                    ) : (
+                      <Wifi className="h-2.5 w-2.5" />
                     )}
-                    {isOnline ? "Online" : "Offline"}
+                    {isMounted && !isOnline ? "Offline" : "Online"}
                   </Badge>
                 </div>
                 <p className="text-xs text-[var(--muted-foreground)]">
-                  {format(currentTime, "EEEE, dd MMMM yyyy", { locale: id })}
+                  {isMounted && currentTime ? format(currentTime, "EEEE, dd MMMM yyyy", { locale: id }) : "Memuat tanggal..."}
                 </p>
               </div>
             </div>
