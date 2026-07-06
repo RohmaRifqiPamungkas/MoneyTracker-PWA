@@ -346,7 +346,7 @@ export function TransactionDialog({
           </div>
         </DialogHeader>
 
-        <div className="px-5 py-4 overflow-y-auto max-h-[76vh] sm:max-h-[550px] custom-scrollbar">
+        <div className="px-5 pt-4 pb-0 overflow-y-auto max-h-[76vh] sm:max-h-[550px] custom-scrollbar">
           <AnimatePresence mode="wait">
 
             {/* ── STEP 2: SUCCESS VIEW ─────────────────────────── */}
@@ -607,22 +607,24 @@ export function TransactionDialog({
                   </div>
                 )}
 
-                <Button
-                  type="button"
-                  size="lg"
-                  onClick={handleNextStep}
-                  className={cn(
-                    "w-full h-11 text-xs font-bold rounded-2xl gap-1.5 mt-2 shadow-sm text-white cursor-pointer",
-                    type === "income"
-                      ? "bg-emerald-600 hover:bg-emerald-500"
-                      : type === "transfer"
-                        ? "bg-teal-600 hover:bg-teal-500"
-                        : "bg-rose-600 hover:bg-rose-500"
-                  )}
-                >
-                  <span>Lanjut Isi Detail</span>
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
+                <div className="sticky bottom-0 -mx-5 px-5 pt-3 pb-4 bg-background border-t border-[var(--card-border)]/60 shadow-[0_-12px_24px_-4px_rgba(0,0,0,0.05)] dark:shadow-[0_-12px_24px_-4px_rgba(0,0,0,0.2)] z-10 mt-4">
+                  <Button
+                    type="button"
+                    size="lg"
+                    onClick={handleNextStep}
+                    className={cn(
+                      "w-full h-11 text-xs font-bold rounded-2xl gap-1.5 shadow-sm text-white cursor-pointer",
+                      type === "income"
+                        ? "bg-emerald-600 hover:bg-emerald-500"
+                        : type === "transfer"
+                          ? "bg-teal-600 hover:bg-teal-500"
+                          : "bg-rose-600 hover:bg-rose-500"
+                    )}
+                  >
+                    <span>Lanjut Isi Detail</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </motion.div>
             )}
 
@@ -737,25 +739,27 @@ export function TransactionDialog({
                 </div>
 
                 {/* Submit Action */}
-                <Button
-                  type="submit"
-                  size="lg"
-                  disabled={isLoading}
-                  className={cn(
-                    "w-full h-11 text-xs font-bold rounded-2xl gap-1.5 mt-2 text-white cursor-pointer shadow-sm transition-all",
-                    type === "income"
-                      ? "bg-emerald-600 hover:bg-emerald-500"
-                      : type === "transfer"
-                        ? "bg-teal-600 hover:bg-teal-500"
-                        : "bg-rose-600 hover:bg-rose-500"
-                  )}
-                >
-                  {isLoading ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> <span>Sedang Menyimpan…</span></>
-                  ) : (
-                    <>{type === "transfer" ? <ArrowRightLeft className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />} <span>{type === "transfer" ? "Simpan Transfer" : "Simpan Transaksi"}</span></>
-                  )}
-                </Button>
+                <div className="sticky bottom-0 -mx-5 px-5 pt-3 pb-4 bg-background border-t border-[var(--card-border)]/60 shadow-[0_-12px_24px_-4px_rgba(0,0,0,0.05)] dark:shadow-[0_-12px_24px_-4px_rgba(0,0,0,0.2)] z-10 mt-4">
+                  <Button
+                    type="submit"
+                    size="lg"
+                    disabled={isLoading}
+                    className={cn(
+                      "w-full h-11 text-xs font-bold rounded-2xl gap-1.5 text-white cursor-pointer shadow-sm transition-all",
+                      type === "income"
+                        ? "bg-emerald-600 hover:bg-emerald-500"
+                        : type === "transfer"
+                          ? "bg-teal-600 hover:bg-teal-500"
+                          : "bg-rose-600 hover:bg-rose-500"
+                    )}
+                  >
+                    {isLoading ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> <span>Sedang Menyimpan…</span></>
+                    ) : (
+                      <>{type === "transfer" ? <ArrowRightLeft className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />} <span>{type === "transfer" ? "Simpan Transfer" : "Simpan Transaksi"}</span></>
+                    )}
+                  </Button>
+                </div>
               </motion.form>
             )}
 
@@ -840,16 +844,18 @@ export function TransactionDialog({
                 </div>
 
                 {/* Action Submit Kategori */}
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleCreateCategory}
-                  disabled={!newCatName.trim()}
-                  className="w-full h-10 text-xs font-bold rounded-xl bg-violet-600 hover:bg-violet-500 text-white cursor-pointer disabled:opacity-50 mt-1 shadow-sm"
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-                  Simpan Kategori
-                </Button>
+                <div className="sticky bottom-0 -mx-5 px-5 pt-3 pb-4 bg-background border-t border-[var(--card-border)]/60 shadow-[0_-12px_24px_-4px_rgba(0,0,0,0.05)] dark:shadow-[0_-12px_24px_-4px_rgba(0,0,0,0.2)] z-10 mt-4">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleCreateCategory}
+                    disabled={!newCatName.trim()}
+                    className="w-full h-10 text-xs font-bold rounded-xl bg-violet-600 hover:bg-violet-500 text-white cursor-pointer disabled:opacity-50 shadow-sm"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                    Simpan Kategori
+                  </Button>
+                </div>
               </motion.div>
             )}
 

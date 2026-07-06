@@ -32,6 +32,8 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+import { PinLockProvider } from "@/components/providers/pin-lock-provider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -41,7 +43,9 @@ export default function RootLayout({
     <html lang="id" className={`${geist.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full bg-[var(--background)] text-[var(--foreground)]">
         <SwRegister />
-        {children}
+        <PinLockProvider>
+          {children}
+        </PinLockProvider>
         <InstallPrompt />
       </body>
     </html>
