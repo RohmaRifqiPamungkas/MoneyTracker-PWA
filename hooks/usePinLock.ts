@@ -11,12 +11,27 @@ const LAST_ACTIVE_KEY = 'moneytracker_last_active';
 export function usePinLock() {
   const [isLocked, setIsLocked] = useState(false);
   const [hasPin, setHasPin] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const supabase = createClient();
+
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setHasSession(!!session);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   // Initialize state
   useEffect(() => {
     const checkState = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHasSession(!!session);
+
       const encryptedSession = localStorage.getItem(ENCRYPTED_SESSION_KEY);
       
       if (encryptedSession) {
@@ -24,7 +39,6 @@ export function usePinLock() {
         setHasPin(true);
         
         const lastActiveStr = localStorage.getItem(LAST_ACTIVE_KEY);
-        const { data } = await supabase.auth.getSession();
         
         if (lastActiveStr) {
           const lastActive = parseInt(lastActiveStr, 10);
@@ -33,10 +47,10 @@ export function usePinLock() {
           if (isNaN(lastActive) || timeDiff > INACTIVE_THRESHOLD_MS) {
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsLocked(true);
-            if (data.session) {
+            if (session) {
               await lockApp();
             }
-          } else if (!data.session) {
+          } else if (!session) {
             // App was closed, Supabase session might be empty if we cleared cookies
             // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsLocked(true);
@@ -44,7 +58,7 @@ export function usePinLock() {
         } else {
           // eslint-disable-next-line react-hooks/set-state-in-effect
           setIsLocked(true);
-          if (data.session) {
+          if (session) {
             await lockApp();
           }
         }
@@ -180,6 +194,7 @@ export function usePinLock() {
   return {
     isLocked,
     hasPin,
+    hasSession,
     isReady,
     verifyPin,
     setupPin,

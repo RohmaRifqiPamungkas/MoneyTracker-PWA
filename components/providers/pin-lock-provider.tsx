@@ -10,7 +10,7 @@ interface PinLockProviderProps {
 }
 
 export function PinLockProvider({ children }: PinLockProviderProps) {
-  const { isLocked, hasPin, isReady, verifyPin, setupPin, clearPin } = usePinLock();
+  const { isLocked, hasPin, hasSession, isReady, verifyPin, setupPin, clearPin } = usePinLock();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
 
@@ -61,8 +61,8 @@ export function PinLockProvider({ children }: PinLockProviderProps) {
     return <>{children}</>;
   }
 
-  // If user hasn't setup a PIN yet (but is on a private route), force setup
-  if (!hasPin) {
+  // If user hasn't setup a PIN yet AND has an active session, force setup
+  if (!hasPin && hasSession) {
     return <PinLockscreen mode="setup" onSuccess={handleSetup} />;
   }
 
