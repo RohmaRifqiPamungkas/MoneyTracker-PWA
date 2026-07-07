@@ -1,79 +1,89 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { encryptSession, decryptSession } from '@/lib/crypto-utils';
 
-// Waktu threshold inaktif (dalam milidetik). Misal: 1 menit = 60000ms
 const INACTIVE_THRESHOLD_MS = 60 * 1000;
-const PIN_HASH_KEY = 'moneytracker_pin_hash';
+const ENCRYPTED_SESSION_KEY = 'moneytracker_encrypted_session';
 const LAST_ACTIVE_KEY = 'moneytracker_last_active';
-
-/**
- * Utility function to hash the PIN using SHA-256
- */
-async function hashPin(pin: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(pin);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-  return hashHex;
-}
 
 export function usePinLock() {
   const [isLocked, setIsLocked] = useState(false);
   const [hasPin, setHasPin] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const supabase = createClient();
 
   // Initialize state
   useEffect(() => {
-    const storedHash = localStorage.getItem(PIN_HASH_KEY);
-    if (storedHash) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setHasPin(true);
+    const checkState = async () => {
+      const encryptedSession = localStorage.getItem(ENCRYPTED_SESSION_KEY);
       
-      const lastActiveStr = localStorage.getItem(LAST_ACTIVE_KEY);
-      if (lastActiveStr) {
-        const lastActive = parseInt(lastActiveStr, 10);
-        const timeDiff = Date.now() - lastActive;
-        // Lock if time diff is greater than threshold, or if lastActive was somehow cleared/invalid
-        if (isNaN(lastActive) || timeDiff > INACTIVE_THRESHOLD_MS) {
+      if (encryptedSession) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setHasPin(true);
+        
+        const lastActiveStr = localStorage.getItem(LAST_ACTIVE_KEY);
+        const { data } = await supabase.auth.getSession();
+        
+        if (lastActiveStr) {
+          const lastActive = parseInt(lastActiveStr, 10);
+          const timeDiff = Date.now() - lastActive;
+          
+          if (isNaN(lastActive) || timeDiff > INACTIVE_THRESHOLD_MS) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setIsLocked(true);
+            if (data.session) {
+              await lockApp();
+            }
+          } else if (!data.session) {
+            // App was closed, Supabase session might be empty if we cleared cookies
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setIsLocked(true);
+          }
+        } else {
           // eslint-disable-next-line react-hooks/set-state-in-effect
           setIsLocked(true);
+          if (data.session) {
+            await lockApp();
+          }
         }
-      } else {
-        // If there's a PIN but no last active time (e.g. app just closed entirely and re-opened), lock it
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setIsLocked(true);
       }
-    }
-    
-    // Update last active on initial load
-    localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsReady(true);
+      
+      localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsReady(true);
+    };
+
+    checkState();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Track activity to auto-lock when returning to app
+  const lockApp = useCallback(async () => {
+    // Sign out locally to clear cookies and localStorage, but keep the refresh token valid on server
+    // Note: scope: 'local' is the standard way to clear client state without revoking the token
+    await supabase.auth.signOut({ scope: 'local' });
+    setIsLocked(true);
+  }, [supabase]);
+
+  // Track activity to auto-lock
   useEffect(() => {
     if (!hasPin) return;
 
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
-        // Check if we need to lock
         const lastActiveStr = localStorage.getItem(LAST_ACTIVE_KEY);
         if (lastActiveStr) {
           const lastActive = parseInt(lastActiveStr, 10);
           if (Date.now() - lastActive > INACTIVE_THRESHOLD_MS) {
-            setIsLocked(true);
+            await lockApp();
           }
         }
       } else {
-        // App goes to background
         localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
       }
     };
 
-    // Also track focus/blur if on desktop
     const handleFocus = () => {
       handleVisibilityChange();
     };
@@ -82,7 +92,6 @@ export function usePinLock() {
       localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
     };
 
-    // Update activity timer when user clicks/types (only needed to reset timer if they don't leave the app)
     const resetActivity = () => {
       if (!isLocked) {
         localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
@@ -93,7 +102,6 @@ export function usePinLock() {
     window.addEventListener('focus', handleFocus);
     window.addEventListener('blur', handleBlur);
     
-    // Reset activity on common user interactions
     window.addEventListener('click', resetActivity);
     window.addEventListener('keydown', resetActivity);
     window.addEventListener('scroll', resetActivity, { passive: true });
@@ -106,35 +114,68 @@ export function usePinLock() {
       window.removeEventListener('keydown', resetActivity);
       window.removeEventListener('scroll', resetActivity);
     };
-  }, [hasPin, isLocked]);
+  }, [hasPin, isLocked, lockApp]);
 
   const verifyPin = useCallback(async (pin: string) => {
-    const storedHash = localStorage.getItem(PIN_HASH_KEY);
-    if (!storedHash) return false;
+    const encryptedSession = localStorage.getItem(ENCRYPTED_SESSION_KEY);
+    if (!encryptedSession) return false;
     
-    const hashedInput = await hashPin(pin);
-    if (hashedInput === storedHash) {
-      setIsLocked(false);
-      localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
-      return true;
+    try {
+      // 1. Decrypt the session JSON string
+      const sessionJsonStr = await decryptSession(encryptedSession, pin);
+      const sessionObj = JSON.parse(sessionJsonStr);
+
+      // 2. Set the session back into Supabase (this sets the cookies too)
+      if (sessionObj.access_token && sessionObj.refresh_token) {
+        const { error } = await supabase.auth.setSession({
+          access_token: sessionObj.access_token,
+          refresh_token: sessionObj.refresh_token,
+        });
+
+        if (error) {
+          console.error('Failed to set session after decryption', error);
+          return false;
+        }
+
+        // 3. Unlock app
+        setIsLocked(false);
+        localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
+        return true;
+      }
+      return false;
+    } catch (e) {
+      // Incorrect PIN or corrupted data
+      return false;
     }
-    return false;
-  }, []);
+  }, [supabase]);
 
   const setupPin = useCallback(async (pin: string) => {
-    const hashedInput = await hashPin(pin);
-    localStorage.setItem(PIN_HASH_KEY, hashedInput);
-    localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
-    setHasPin(true);
-    setIsLocked(false);
-  }, []);
+    // 1. Get current active session
+    const { data } = await supabase.auth.getSession();
+    
+    if (data.session) {
+      // 2. Encrypt the whole session object
+      const sessionJsonStr = JSON.stringify(data.session);
+      const encryptedSession = await encryptSession(sessionJsonStr, pin);
+      
+      // 3. Store the encrypted session
+      localStorage.setItem(ENCRYPTED_SESSION_KEY, encryptedSession);
+      localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
+      
+      setHasPin(true);
+      setIsLocked(false);
+    } else {
+      throw new Error("No active session to encrypt. Please login first.");
+    }
+  }, [supabase]);
 
-  const clearPin = useCallback(() => {
-    localStorage.removeItem(PIN_HASH_KEY);
+  const clearPin = useCallback(async () => {
+    localStorage.removeItem(ENCRYPTED_SESSION_KEY);
     localStorage.removeItem(LAST_ACTIVE_KEY);
+    await supabase.auth.signOut(); // Fully sign out since we are clearing PIN
     setHasPin(false);
     setIsLocked(false);
-  }, []);
+  }, [supabase]);
 
   return {
     isLocked,

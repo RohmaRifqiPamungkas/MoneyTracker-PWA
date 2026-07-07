@@ -50,19 +50,20 @@ export function PinLockProvider({ children }: PinLockProviderProps) {
     );
   }
 
-  // If on a public route, just render children
+  // If locked (and has a PIN), we MUST show the lockscreen, even on public routes like /login 
+  // because SSR might have redirected them here due to missing cookies
+  if (hasPin && isLocked) {
+    return <PinLockscreen mode="verify" onSuccess={handleVerify} onLogout={handleLogout} />;
+  }
+
+  // If on a public route and not locked, just render children
   if (isPublicRoute) {
     return <>{children}</>;
   }
 
-  // If user hasn't setup a PIN yet, force setup
+  // If user hasn't setup a PIN yet (but is on a private route), force setup
   if (!hasPin) {
     return <PinLockscreen mode="setup" onSuccess={handleSetup} />;
-  }
-
-  // If locked, show the verify screen
-  if (isLocked) {
-    return <PinLockscreen mode="verify" onSuccess={handleVerify} onLogout={handleLogout} />;
   }
 
   // Otherwise, normal app
