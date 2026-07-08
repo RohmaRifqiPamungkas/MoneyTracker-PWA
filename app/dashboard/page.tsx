@@ -10,6 +10,7 @@ import {
   getFinancialSummary,
   getMonthlyData,
   getCategoryExpenses,
+  getRecentTransactions24h,
 } from "@/lib/supabase/queries";
 
 export const metadata = {
@@ -45,6 +46,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     summary,
     monthlyData,
     categoryExpenses,
+    recentNotifications,
   ] = await Promise.all([
     getTransactions(selectedMonth, selectedYear), // Masukkan parameter jika query Anda mendukung filter
     getBankAccounts(),
@@ -55,6 +57,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     getFinancialSummary(selectedMonth, selectedYear), // Masukkan parameter
     getMonthlyData(), // Jika ini chart tren beberapa bulan, biarkan kosong atau sesuaikan
     getCategoryExpenses(selectedMonth, selectedYear), // Masukkan parameter
+    getRecentTransactions24h(),
   ]);
 
   return (
@@ -69,6 +72,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       budgetItems={budgetItems}
       savingsGoals={savingsGoals}
       upcomingBills={upcomingBills}
+      recentNotifications={recentNotifications}
       // Kirim state bulan & tahun aktif ke client untuk ditaruh di dropdown komponen
       currentMonth={selectedMonth}
       currentYear={selectedYear}

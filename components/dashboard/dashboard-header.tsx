@@ -10,13 +10,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getGreeting } from "@/lib/utils";
-import { format } from "date-fns";
+import { getGreeting, formatCurrency } from "@/lib/utils";
+import { format, formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { TransactionDialog } from "@/components/layout/transaction-dialog";
+import { motion, AnimatePresence } from "framer-motion";
 import { signOutAction } from "@/lib/auth/actions";
-import type { BankAccountRow } from "@/lib/supabase/types";
+import type { BankAccountRow, TransactionRow } from "@/lib/supabase/types";
 import type { AvailableTransactionCategories } from "@/lib/supabase/queries";
 
 type DefaultType = "income" | "expense";
@@ -24,13 +25,16 @@ type DefaultType = "income" | "expense";
 interface DashboardHeaderProps {
   bankAccounts: BankAccountRow[];
   availableCategories: AvailableTransactionCategories;
+  recentNotifications: TransactionRow[];
 }
 
-export function DashboardHeader({ bankAccounts, availableCategories }: DashboardHeaderProps) {
+export function DashboardHeader({ bankAccounts, availableCategories, recentNotifications = [] }: DashboardHeaderProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const [defaultType, setDefaultType] = useState<DefaultType>("expense");
 
   useEffect(() => {
@@ -49,6 +53,21 @@ export function DashboardHeader({ bankAccounts, availableCategories }: Dashboard
     const timer = setInterval(() => setCurrentTime(new Date()), 60_000);
     return () => clearInterval(timer);
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotifOpen(false);
+      }
+    }
+    if (isNotifOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isNotifOpen]);
 
   const openDialog = (type: DefaultType) => {
     setDefaultType(type);
@@ -119,10 +138,71 @@ export function DashboardHeader({ bankAccounts, availableCategories }: Dashboard
               </div>
 
               {/* Notification bell */}
-              <Button variant="ghost" size="icon" className="relative" aria-label="Notifikasi">
-                <Bell className="h-4 w-4" />
-                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-[var(--background)]" />
-              </Button>
+              <div className="relative" ref={notifRef}>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="relative" 
+                  aria-label="Notifikasi"
+                  onClick={() => setIsNotifOpen((prev) => !prev)}
+                >
+                  <Bell className="h-4 w-4" />
+                  {recentNotifications.length > 0 && (
+                    <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-[var(--background)]" />
+                  )}
+                </Button>
+
+                <AnimatePresence>
+                  {isNotifOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute right-0 sm:-right-4 lg:right-0 top-full mt-3 w-[calc(100vw-2rem)] max-w-sm sm:w-80 origin-top-right rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-2xl backdrop-blur-xl z-50"
+                    >
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-[var(--foreground)]">Notifikasi <span className="text-emerald-500 font-semibold">(24 Jam)</span></h3>
+                        <span className="text-xs font-medium text-[var(--muted-foreground)] bg-[var(--muted)] px-2 py-0.5 rounded-full">{recentNotifications.length} Baru</span>
+                      </div>
+                      
+                      <div className="flex max-h-[320px] flex-col gap-2 overflow-y-auto pr-2 custom-scrollbar">
+                        {recentNotifications.length === 0 ? (
+                          <div className="py-8 flex flex-col items-center justify-center gap-2 text-center">
+                            <Bell className="h-8 w-8 text-[var(--muted-foreground)] opacity-20" />
+                            <span className="text-sm text-[var(--muted-foreground)]">Tidak ada aktivitas baru.</span>
+                          </div>
+                        ) : (
+                          recentNotifications.map((notif) => {
+                            const isIncome = notif.type === "income";
+                            const Icon = isIncome ? TrendingUp : TrendingDown;
+                            return (
+                              <div key={notif.id} className="group flex items-start gap-3.5 rounded-xl border border-transparent bg-[var(--background)]/40 p-3 transition-all hover:border-[var(--card-border)] hover:bg-[var(--muted)]/50 hover:shadow-sm">
+                                <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isIncome ? 'bg-emerald-500/10 text-emerald-500 shadow-inner shadow-emerald-500/20' : 'bg-rose-500/10 text-rose-500 shadow-inner shadow-rose-500/20'}`}>
+                                  <Icon className="h-4 w-4" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-semibold text-[var(--foreground)] group-hover:text-emerald-500 transition-colors">
+                                    {notif.name}
+                                  </p>
+                                  <div className="mt-1 flex flex-col gap-0.5">
+                                    <span className={`text-sm font-bold tracking-tight ${isIncome ? 'text-emerald-500' : 'text-[var(--foreground)]'}`}>
+                                      {isIncome ? "+" : ""}{formatCurrency(notif.amount)}
+                                    </span>
+                                    <span className="text-[10px] font-medium text-[var(--muted-foreground)] opacity-80">
+                                      {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: id })}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               {/* Avatar */}
               <button

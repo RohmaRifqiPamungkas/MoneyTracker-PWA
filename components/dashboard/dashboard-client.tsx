@@ -132,6 +132,7 @@ interface DashboardClientProps {
   upcomingBills: UpcomingBillRow[];
   currentMonth: number;
   currentYear: number;
+  recentNotifications: TransactionRow[];
 }
 
 export function DashboardClient({
@@ -147,6 +148,7 @@ export function DashboardClient({
   upcomingBills,
   currentMonth,
   currentYear,
+  recentNotifications,
 }: DashboardClientProps) {
   const [activeTab, setActiveTab] = useState<TabType>("stats");
   const [isMounted, setIsMounted] = useState(false);
@@ -172,7 +174,7 @@ export function DashboardClient({
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      <DashboardHeader bankAccounts={bankAccounts} availableCategories={availableCategories} />
+      <DashboardHeader bankAccounts={bankAccounts} availableCategories={availableCategories} recentNotifications={recentNotifications} />
 
       <main className="mx-auto max-w-screen-xl px-4 py-5 sm:px-6 lg:px-8">
 

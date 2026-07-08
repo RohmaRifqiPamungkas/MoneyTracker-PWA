@@ -89,6 +89,27 @@ export async function getTransactions(month?: number, year?: number, limit = 50)
   return (data ?? []) as TransactionRow[];
 }
 
+/**
+ * Ambil transaksi yang baru ditambahkan dalam 24 jam terakhir.
+ */
+export async function getRecentTransactions24h(limit = 10): Promise<TransactionRow[]> {
+  const supabase = await createClient();
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .gte("created_at", yesterday)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("[getRecentTransactions24h]", error.message);
+    return [];
+  }
+  return (data ?? []) as TransactionRow[];
+}
+
 export async function getCategories(): Promise<CategoryRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
