@@ -132,7 +132,7 @@ export function usePinLock() {
 
   const verifyPin = useCallback(async (pin: string) => {
     const encryptedSession = localStorage.getItem(ENCRYPTED_SESSION_KEY);
-    if (!encryptedSession) return false;
+    if (!encryptedSession) return { success: false, error: 'No session found' };
     
     try {
       // 1. Decrypt the session JSON string
@@ -146,20 +146,25 @@ export function usePinLock() {
           refresh_token: sessionObj.refresh_token,
         });
 
-        if (error) {
-          console.error('Failed to set session after decryption', error);
-          return false;
+        if (error && error.message !== 'Auth session missing!') {
+          console.error('Failed to set session', error);
+          return { success: false, error: `Set session: ${error.message}` };
+        }
+        
+        if (error && error.message === 'Auth session missing!') {
+          console.warn('Ignored Supabase SSR cookie sync quirk (Auth session missing!)');
         }
 
         // 3. Unlock app
         setIsLocked(false);
         localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
-        return true;
+        return { success: true };
       }
-      return false;
-    } catch (e) {
+      return { success: false, error: 'Missing tokens in session obj' };
+    } catch (e: any) {
       // Incorrect PIN or corrupted data
-      return false;
+      console.error('verifyPin Error:', e);
+      return { success: false, error: 'Decrypt: ' + e.message };
     }
   }, [supabase]);
 

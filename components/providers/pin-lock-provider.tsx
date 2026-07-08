@@ -23,8 +23,9 @@ export function PinLockProvider({ children }: PinLockProviderProps) {
   }, []);
 
   const handleVerify = async (pin: string) => {
-    const success = await verifyPin(pin);
-    if (!success) {
+    const res = await verifyPin(pin);
+    if (!res.success) {
+      alert("Gagal Verifikasi: " + res.error);
       // Trigger event to notify PinLockscreen to shake
       const event = new CustomEvent('pin-validation-failed');
       window.dispatchEvent(event);
