@@ -18,6 +18,14 @@ declare const self: any;
 
 
 const runtimeCaching: RuntimeCaching[] = [
+  {
+    matcher: ({ url }) => url.hostname.endsWith(".supabase.co"),
+    handler: new NetworkOnly({
+      fetchOptions: {
+        keepalive: false,
+      },
+    }),
+  },
   ...defaultCache,
 ];
 
