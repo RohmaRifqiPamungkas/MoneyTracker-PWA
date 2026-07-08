@@ -15,17 +15,9 @@ declare global {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const self: any;
 
-const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
-  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin
-  : null;
+
 
 const runtimeCaching: RuntimeCaching[] = [
-  {
-    matcher: ({ url }) =>
-      url.pathname.startsWith("/auth/v1/") &&
-      (supabaseOrigin ? url.origin === supabaseOrigin : url.hostname.endsWith(".supabase.co")),
-    handler: new NetworkOnly(),
-  },
   ...defaultCache,
 ];
 
