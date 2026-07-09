@@ -76,36 +76,40 @@ export function DashboardHeader({ bankAccounts, availableCategories, recentNotif
 
   return (
     <>
-      <header className="sticky top-0 z-30 w-full border-b border-[var(--card-border)] bg-[var(--background)]/80 backdrop-blur-xl">
-        <div className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between gap-4">
+      <header className="sticky top-0 sm:top-0 z-30 w-full px-3 sm:px-0 pt-3 sm:pt-0">
+        <div className="mx-auto max-w-screen-xl sm:px-6 lg:px-8">
+          <div className="flex h-[52px] sm:h-16 items-center justify-between gap-3 sm:gap-4 rounded-[1.25rem] sm:rounded-none border border-[var(--card-border)]/60 sm:border-x-0 sm:border-t-0 sm:border-b bg-[var(--card)]/80 sm:bg-[var(--background)]/80 px-3 sm:px-0 shadow-sm sm:shadow-none backdrop-blur-xl">
 
-            {/* Left: Logo + greeting */}
-            <div className="flex items-center gap-3 min-w-0">
-              {/* App icon */}
-              <div className="hidden sm:flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-sm">
-                <span className="text-sm font-bold text-white">M</span>
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h1 className="truncate text-sm font-semibold text-[var(--foreground)] sm:text-base">
-                    {getGreeting()}, <span className="text-emerald-500">Pamungkas</span> 👋
+            {/* Left: Avatar + greeting */}
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              {/* Avatar on the left for mobile app feel */}
+              <button
+                className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-xs sm:text-sm font-bold text-white shadow-sm ring-2 ring-[var(--card)] sm:ring-[var(--background)] transition-transform hover:scale-105 active:scale-95"
+                aria-label="Profil"
+              >
+                P
+              </button>
+              
+              <div className="min-w-0 flex flex-col justify-center">
+                <span className="text-[9px] sm:text-[10px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider leading-none mb-1">
+                  {getGreeting()} 👋
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <h1 className="truncate text-xs sm:text-sm font-extrabold text-[var(--foreground)] leading-none">
+                    Pamungkas
                   </h1>
                   <Badge
                     variant={isMounted && !isOnline ? "destructive" : "default"}
-                    className="hidden lg:inline-flex shrink-0 items-center gap-1 text-[10px]"
+                    className="hidden lg:inline-flex shrink-0 items-center gap-1 h-4 px-1.5 text-[8px]"
                   >
                     {isMounted && !isOnline ? (
-                      <WifiOff className="h-2.5 w-2.5" />
+                      <WifiOff className="h-2 w-2" />
                     ) : (
-                      <Wifi className="h-2.5 w-2.5" />
+                      <Wifi className="h-2 w-2" />
                     )}
                     {isMounted && !isOnline ? "Offline" : "Online"}
                   </Badge>
                 </div>
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  {isMounted && currentTime ? format(currentTime, "EEEE, dd MMMM yyyy", { locale: id }) : "Memuat tanggal..."}
-                </p>
               </div>
             </div>
 
@@ -159,7 +163,7 @@ export function DashboardHeader({ bankAccounts, availableCategories, recentNotif
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 sm:-right-4 lg:right-0 top-full mt-3 w-[calc(100vw-2rem)] max-w-sm sm:w-80 origin-top-right rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-2xl backdrop-blur-xl z-50"
+                      className="fixed left-4 right-4 top-[72px] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-3 w-auto sm:w-80 origin-top sm:origin-top-right rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 shadow-2xl backdrop-blur-xl z-50"
                     >
                       <div className="mb-4 flex items-center justify-between">
                         <h3 className="text-sm font-bold text-[var(--foreground)]">Notifikasi <span className="text-emerald-500 font-semibold">(24 Jam)</span></h3>
@@ -204,15 +208,9 @@ export function DashboardHeader({ bankAccounts, availableCategories, recentNotif
                 </AnimatePresence>
               </div>
 
-              {/* Avatar */}
-              <button
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-sm font-bold text-white shadow-sm ring-2 ring-[var(--background)] transition-transform hover:scale-105 active:scale-95"
-                aria-label="Profil"
-              >
-                P
-              </button>
+              {/* Desktop Logout Button */}
               <form action={signOutAction} className="hidden sm:block">
-                <Button variant="outline" size="sm" type="submit">
+                <Button variant="outline" size="sm" type="submit" className="h-8 text-xs font-semibold rounded-xl">
                   Keluar
                 </Button>
               </form>

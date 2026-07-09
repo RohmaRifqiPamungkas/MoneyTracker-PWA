@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { updateTransaction } from "@/app/actions";
 import { cn, formatCurrency } from "@/lib/utils";
+import { AnimatedEmoji } from "@/components/ui/animated-emoji";
 import type { BankAccountRow, TransactionRow } from "@/lib/supabase/types";
 import type { AvailableTransactionCategories } from "@/lib/supabase/queries";
 
@@ -291,7 +292,7 @@ export function EditTransactionDialog({
                         return (
                           <SelectItem key={`${category.type}-${category.slug}`} value={category.slug}>
                             <span className="flex items-center gap-2">
-                              <span>{category.emoji}</span>
+                              <AnimatedEmoji emoji={category.emoji} size={16} />
                               <span>{category.name}</span>
                             </span>
                           </SelectItem>

@@ -16,6 +16,7 @@ import {
   TrendingDown,
   ArrowUpDown,
 } from "lucide-react";
+import { AnimatedEmoji } from "@/components/ui/animated-emoji";
 import Link from "next/link";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -349,7 +350,7 @@ export function BudgetClient({
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--muted)] border border-[var(--card-border)]/10 text-base shadow-sm">
-                            {metaEmoji}
+                            <AnimatedEmoji emoji={metaEmoji} size={20} />
                           </div>
                           <span className="text-xs sm:text-sm font-semibold text-[var(--foreground)] truncate">
                             {metaLabel}
@@ -476,7 +477,7 @@ export function BudgetClient({
                               {availableCategories.expense.map((cat) => (
                                 <SelectItem key={`${cat.type}-${cat.slug}`} value={cat.slug}>
                                   <span className="flex items-center gap-2 text-xs sm:text-sm">
-                                    <span>{cat.emoji}</span>
+                                    <AnimatedEmoji emoji={cat.emoji} size={16} />
                                     <span>{cat.name}</span>
                                   </span>
                                 </SelectItem>

@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { GoalDialog } from "./goal-dialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import type { SavingsGoalRow } from "@/lib/supabase/types";
+import { AnimatedEmoji } from "@/components/ui/animated-emoji";
 
 export function GoalsTracker({ goals }: { goals: SavingsGoalRow[] }) {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -69,7 +70,7 @@ export function GoalsTracker({ goals }: { goals: SavingsGoalRow[] }) {
                   {/* Row 1: Emoji + Nama + Tanggal Target di Kiri | Persentase di Kanan */}
                   <div className="flex items-start justify-between gap-3 group/goal relative">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-lg leading-none select-none shrink-0">{goal.emoji}</span>
+                      <AnimatedEmoji emoji={goal.emoji} size={24} />
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-[var(--foreground)] truncate leading-tight">
                           {goal.name}

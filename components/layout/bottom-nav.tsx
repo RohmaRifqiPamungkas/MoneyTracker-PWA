@@ -51,10 +51,17 @@ interface BottomNavProps {
 export function BottomNav({ onAddClick }: BottomNavProps) {
   const pathname = usePathname();
 
+  const handleAddClick = () => {
+    if (typeof window !== "undefined" && window.navigator?.vibrate) {
+      window.navigator.vibrate(50);
+    }
+    onAddClick();
+  };
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 lg:hidden">
       {/* Glass bar */}
-      <div className="mx-3 mb-3 rounded-2xl border border-[var(--card-border)] bg-[var(--card)]/90 backdrop-blur-xl shadow-lg shadow-black/10">
+      <div className="mx-3 mb-3 rounded-3xl border border-[var(--card-border)] bg-[var(--card)]/90 backdrop-blur-xl shadow-lg shadow-black/10">
         <nav className="flex items-center h-16 px-2" aria-label="Main navigation">
 
           {/* Left items */}
@@ -68,7 +75,7 @@ export function BottomNav({ onAddClick }: BottomNavProps) {
           {/* FAB – center */}
           <div className="flex flex-1 items-center justify-center">
             <button
-              onClick={onAddClick}
+              onClick={handleAddClick}
               aria-label="Tambah transaksi"
               className="group relative flex h-14 w-14 items-center justify-center"
             >

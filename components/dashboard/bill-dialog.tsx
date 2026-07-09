@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { addUpcomingBill, updateUpcomingBill, deleteUpcomingBill } from "@/app/actions";
 import type { UpcomingBillRow } from "@/lib/supabase/types";
 import { Loader2, Trash2 } from "lucide-react";
+import { AnimatedEmoji } from "@/components/ui/animated-emoji";
 
 interface BillDialogProps {
   bill: UpcomingBillRow | null; // null for add mode
@@ -131,7 +132,7 @@ export function BillDialog({ bill, open, onOpenChange }: BillDialogProps) {
         <DialogHeader className="p-5 pb-3 border-b border-[var(--card-border)]/40 text-left">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
-              <span className="text-xl leading-none">{formData.emoji || "📄"}</span>
+              <AnimatedEmoji emoji={formData.emoji || "📄"} size={24} />
             </div>
             <div>
               <DialogTitle className="text-sm sm:text-base font-bold">

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { addSavingsGoal, updateSavingsGoal, deleteSavingsGoal } from "@/app/actions";
 import type { SavingsGoalRow } from "@/lib/supabase/types";
 import { Loader2, Trash2 } from "lucide-react";
+import { AnimatedEmoji } from "@/components/ui/animated-emoji";
 
 interface GoalDialogProps {
   goal: SavingsGoalRow | null; // null for add mode
@@ -131,7 +132,7 @@ export function GoalDialog({ goal, open, onOpenChange }: GoalDialogProps) {
         <DialogHeader className="p-5 pb-3 border-b border-[var(--card-border)]/40 text-left">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
-              <span className="text-xl leading-none">{formData.emoji || "🎯"}</span>
+              <AnimatedEmoji emoji={formData.emoji || "🎯"} size={24} />
             </div>
             <div>
               <DialogTitle className="text-sm sm:text-base font-bold">

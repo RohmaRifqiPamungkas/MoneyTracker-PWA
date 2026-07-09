@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 const CashflowChart = dynamic(
   () => import("@/components/dashboard/cashflow-chart").then((m) => m.CashflowChart),
   {
-    loading: () => <Skeleton className="h-72 w-full rounded-2xl" />,
+    loading: () => <ChartSkeleton h="h-72" />,
     ssr: false,
   }
 );
@@ -31,7 +31,7 @@ const CashflowChart = dynamic(
 const ExpenseChart = dynamic(
   () => import("@/components/dashboard/expense-chart").then((m) => m.ExpenseChart),
   {
-    loading: () => <Skeleton className="h-64 w-full rounded-2xl" />,
+    loading: () => <ChartSkeleton h="h-64" />,
     ssr: false,
   }
 );
@@ -39,7 +39,7 @@ const ExpenseChart = dynamic(
 const FinancialInsights = dynamic(
   () => import("@/components/dashboard/financial-insights").then((m) => m.FinancialInsights),
   {
-    loading: () => <Skeleton className="h-64 w-full rounded-2xl" />,
+    loading: () => <WidgetSkeleton rows={3} />,
     ssr: false,
   }
 );
@@ -47,7 +47,7 @@ const FinancialInsights = dynamic(
 const RecentTransactions = dynamic(
   () => import("@/components/dashboard/recent-transactions").then((m) => m.RecentTransactions),
   {
-    loading: () => <Skeleton className="h-80 w-full rounded-2xl" />,
+    loading: () => <TransactionListSkeleton />,
     ssr: false,
   }
 );
@@ -55,7 +55,7 @@ const RecentTransactions = dynamic(
 const BudgetProgress = dynamic(
   () => import("@/components/dashboard/budget-progress").then((m) => m.BudgetProgress),
   {
-    loading: () => <Skeleton className="h-48 w-full rounded-2xl" />,
+    loading: () => <WidgetSkeleton rows={3} />,
     ssr: false,
   }
 );
@@ -63,7 +63,7 @@ const BudgetProgress = dynamic(
 const GoalsTracker = dynamic(
   () => import("@/components/dashboard/goals-tracker").then((m) => m.GoalsTracker),
   {
-    loading: () => <Skeleton className="h-32 w-full rounded-2xl" />,
+    loading: () => <WidgetSkeleton rows={2} />,
     ssr: false,
   }
 );
@@ -71,7 +71,7 @@ const GoalsTracker = dynamic(
 const UpcomingBills = dynamic(
   () => import("@/components/dashboard/upcoming-bills").then((m) => m.UpcomingBills),
   {
-    loading: () => <Skeleton className="h-32 w-full rounded-2xl" />,
+    loading: () => <WidgetSkeleton rows={2} />,
     ssr: false,
   }
 );
@@ -79,7 +79,7 @@ const UpcomingBills = dynamic(
 const QuickTransactionForm = dynamic(
   () => import("@/components/dashboard/quick-transaction-form").then((m) => m.QuickTransactionForm),
   {
-    loading: () => <Skeleton className="h-48 w-full rounded-2xl" />,
+    loading: () => <FormSkeleton />,
     ssr: false,
   }
 );
@@ -87,7 +87,7 @@ const QuickTransactionForm = dynamic(
 const BankAccountsWidget = dynamic(
   () => import("@/components/dashboard/bank-accounts").then((m) => m.BankAccountsWidget),
   {
-    loading: () => <Skeleton className="h-32 w-full rounded-2xl" />,
+    loading: () => <BankAccountsSkeleton />,
     ssr: false,
   }
 );
@@ -109,10 +109,101 @@ const MONTHS = [
 
 const YEARS = [2024, 2025, 2026, 2027];
 
-function CardSkeleton({ h = "h-48" }: { h?: string }) {
+function ChartSkeleton({ h = "h-72" }: { h?: string }) {
   return (
-    <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5">
+    <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 space-y-4 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <Skeleton className="h-5 w-1/3" />
+        <Skeleton className="h-5 w-8" />
+      </div>
       <Skeleton className={`w-full ${h}`} />
+    </div>
+  );
+}
+
+function TransactionListSkeleton() {
+  return (
+    <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 space-y-4 shadow-sm">
+      <div className="flex items-center justify-between mb-6">
+        <Skeleton className="h-5 w-1/3" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </div>
+      <div className="space-y-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-xl" />
+              <div className="space-y-2">
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="h-2.5 w-16" />
+              </div>
+            </div>
+            <Skeleton className="h-4 w-20" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WidgetSkeleton({ rows = 3 }: { rows?: number }) {
+  return (
+    <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 space-y-4 shadow-sm">
+      <div className="flex items-center justify-between mb-5">
+        <Skeleton className="h-5 w-1/3" />
+        <Skeleton className="h-5 w-5 rounded-full" />
+      </div>
+      <div className="space-y-5">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-2.5">
+            <div className="flex justify-between items-center">
+              <Skeleton className="h-3 w-1/3" />
+              <Skeleton className="h-3 w-12" />
+            </div>
+            <Skeleton className="h-2 w-full rounded-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FormSkeleton() {
+  return (
+    <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 space-y-5 shadow-sm">
+      <div className="flex items-center gap-2 mb-2">
+        <Skeleton className="h-5 w-5 rounded-full" />
+        <Skeleton className="h-5 w-1/2" />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <Skeleton className="h-14 sm:h-16 rounded-xl" />
+        <Skeleton className="h-14 sm:h-16 rounded-xl" />
+        <Skeleton className="h-14 sm:h-16 rounded-xl" />
+      </div>
+      <div className="space-y-1.5 mt-2">
+        <Skeleton className="h-3 w-16" />
+        <Skeleton className="h-11 rounded-xl" />
+      </div>
+      <div className="space-y-1.5">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-11 rounded-xl" />
+      </div>
+      <Skeleton className="h-11 rounded-xl mt-4" />
+    </div>
+  );
+}
+
+function BankAccountsSkeleton() {
+  return (
+    <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 space-y-4 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <Skeleton className="h-5 w-1/3" />
+        <Skeleton className="h-5 w-5 rounded-full" />
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <Skeleton className="h-24 sm:h-28 rounded-2xl" />
+        <Skeleton className="h-24 sm:h-28 rounded-2xl" />
+      </div>
     </div>
   );
 }
@@ -152,6 +243,7 @@ export function DashboardClient({
 }: DashboardClientProps) {
   const [activeTab, setActiveTab] = useState<TabType>("stats");
   const [isMounted, setIsMounted] = useState(false);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const router = useRouter();
 
   // Pastikan waktu footer dieksekusi hanya di client side
@@ -172,6 +264,44 @@ export function DashboardClient({
     });
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX - touchEndX;
+
+    // Minimum swipe distance
+    if (Math.abs(diff) > 40) {
+      if (diff > 0) {
+        // Swiped left -> next month
+        let nextMonth = currentMonth + 1;
+        let nextYear = currentYear;
+        if (nextMonth > 11) {
+          nextMonth = 0;
+          nextYear += 1;
+        }
+        if (nextYear <= YEARS[YEARS.length - 1]) {
+          handlePeriodChange(nextMonth, nextYear);
+        }
+      } else {
+        // Swiped right -> prev month
+        let prevMonth = currentMonth - 1;
+        let prevYear = currentYear;
+        if (prevMonth < 0) {
+          prevMonth = 11;
+          prevYear -= 1;
+        }
+        if (prevYear >= YEARS[0]) {
+          handlePeriodChange(prevMonth, prevYear);
+        }
+      }
+    }
+    setTouchStartX(null);
+  };
+
   return (
     <div className="min-h-screen bg-[var(--background)]">
       <DashboardHeader bankAccounts={bankAccounts} availableCategories={availableCategories} recentNotifications={recentNotifications} />
@@ -183,10 +313,12 @@ export function DashboardClient({
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 400, damping: 30 }}
-          className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--card-border)] bg-[var(--card)]/80 p-4 shadow-sm backdrop-blur-xl transition-all duration-300 hover:border-emerald-500/40 hover:shadow-md"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--card-border)] bg-[var(--card)]/80 p-4 shadow-sm backdrop-blur-xl transition-all duration-300 hover:border-emerald-500/40 hover:shadow-md select-none"
         >
           <div className="flex items-center gap-4">
-            <motion.div 
+            <motion.div
               className="relative rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 p-3 text-emerald-500 shadow-inner"
             >
               <Calendar className="h-5 w-5" />
@@ -300,14 +432,14 @@ export function DashboardClient({
               <FinancialInsights insights={insights} />
             </div>
 
-              <RecentTransactions transactions={transactions} bankAccounts={bankAccounts} availableCategories={availableCategories} />
+            <RecentTransactions transactions={transactions} bankAccounts={bankAccounts} availableCategories={availableCategories} />
           </div>
 
           {/* Right Column: sidebar widgets */}
           <div className="flex flex-col gap-5">
-              <QuickTransactionForm bankAccounts={bankAccounts} availableCategories={availableCategories} />
+            <QuickTransactionForm bankAccounts={bankAccounts} availableCategories={availableCategories} />
             <BankAccountsWidget accounts={bankAccounts} />
-              <BudgetProgress budgetItems={budgetItems} availableCategories={availableCategories} />
+            <BudgetProgress budgetItems={budgetItems} availableCategories={availableCategories} />
             <GoalsTracker goals={savingsGoals} />
             <UpcomingBills bills={upcomingBills} />
           </div>
@@ -326,6 +458,7 @@ export function DashboardClient({
                 className="flex flex-col gap-5"
               >
                 <CashflowChart data={monthlyData} />
+                <BankAccountsWidget accounts={bankAccounts} />
                 <ExpenseChart data={categoryExpenses} />
                 <FinancialInsights insights={insights} />
               </motion.div>
@@ -341,7 +474,6 @@ export function DashboardClient({
                 className="flex flex-col gap-5"
               >
                 <QuickTransactionForm bankAccounts={bankAccounts} availableCategories={availableCategories} />
-                <BankAccountsWidget accounts={bankAccounts} />
                 <RecentTransactions transactions={transactions} bankAccounts={bankAccounts} availableCategories={availableCategories} />
               </motion.div>
             )}

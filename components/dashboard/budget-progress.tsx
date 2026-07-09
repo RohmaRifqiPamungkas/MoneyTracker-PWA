@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { formatCurrency, cn } from "@/lib/utils";
 import type { BudgetItemRow } from "@/lib/supabase/types";
 import type { AvailableTransactionCategories } from "@/lib/supabase/queries";
+import { AnimatedEmoji } from "@/components/ui/animated-emoji";
 
 export function BudgetProgress({
   budgetItems,
@@ -59,7 +60,7 @@ export function BudgetProgress({
                   {/* Row 1: Label & percentage */}
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-base leading-none shrink-0">{meta.emoji}</span>
+                      <AnimatedEmoji emoji={meta.emoji} size={16} />
                       <span className="text-sm font-medium text-[var(--foreground)] truncate">{meta.name}</span>
                       {(isOver || isWarning) && (
                         <span

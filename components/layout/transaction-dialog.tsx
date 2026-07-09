@@ -33,8 +33,10 @@ import { BANK_ACCOUNTS as MOCK_BANK_ACCOUNTS } from "@/lib/mock-data";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { BankAccountRow } from "@/lib/supabase/types";
 import type { AvailableTransactionCategories, CategoryOption } from "@/lib/supabase/queries";
+import { AnimatedEmoji } from "@/components/ui/animated-emoji";
+import fluentEmojisKeys from "@/lib/fluent-emojis-keys.json";
 
-const EMOJI_OPTIONS = ["🏷️", "🎯", "🌟", "💫", "⭐", "🔥", "💎", "🎁", "🎪", "🎭", "🎨", "🎲", "🎸", "🎺", "🎻", "🏆", "🥇", "🎖️", "🏅"];
+const EMOJI_OPTIONS = fluentEmojisKeys as string[];
 const COLOR_OPTIONS = ["#10b981", "#6366f1", "#f59e0b", "#3b82f6", "#ec4899", "#14b8a6", "#8b5cf6", "#06b6d4", "#f97316", "#ef4444", "#84cc16", "#a855f7"];
 
 function slugifyCategoryName(name: string) {
@@ -291,6 +293,10 @@ export function TransactionDialog({
     if (!result.success) {
       alert(result.error || "Gagal menyimpan transaksi.");
       return;
+    }
+
+    if (typeof window !== "undefined" && window.navigator?.vibrate) {
+      window.navigator.vibrate([30, 50, 30]); // Success vibration pattern
     }
 
     setStep(2);
@@ -710,7 +716,7 @@ export function TransactionDialog({
                                     : "border-[var(--card-border)] bg-[var(--muted)]/40 text-[var(--muted-foreground)] hover:bg-[var(--muted)]/80"
                                 )}
                               >
-                                <span className="text-base leading-none">{cat.emoji}</span>
+                                <AnimatedEmoji emoji={cat.emoji} size={16} />
                                 <span className="text-[10px] leading-tight truncate w-full px-0.5">
                                   {cat.name}
                                 </span>
@@ -782,7 +788,7 @@ export function TransactionDialog({
                     className="flex flex-col items-center justify-center gap-1 rounded-xl border-2 py-2 px-5 min-w-[70px]"
                     style={{ borderColor: newCatColor, backgroundColor: `${newCatColor}15` }}
                   >
-                    <span className="text-xl leading-none">{newCatEmoji}</span>
+                    <AnimatedEmoji emoji={newCatEmoji} size={20} />
                     <span className="text-[10px] font-bold" style={{ color: newCatColor }}>
                       {newCatName || "Nama"}
                     </span>
@@ -805,7 +811,7 @@ export function TransactionDialog({
                 {/* Emoji Selection */}
                 <div className="space-y-1">
                   <span className="text-[10px] font-semibold text-[var(--muted-foreground)]">Emoji</span>
-                  <div className="flex flex-wrap gap-1 p-1.5 rounded-lg border border-[var(--card-border)] bg-[var(--muted)]/30 max-h-[70px] overflow-y-auto custom-scrollbar">
+                  <div className="flex flex-wrap gap-1 p-1.5 rounded-lg border border-[var(--card-border)] bg-[var(--muted)]/30 max-h-[140px] overflow-y-auto custom-scrollbar">
                     {EMOJI_OPTIONS.map((emoji, idx) => (
                       <button
                         key={`${emoji}-${idx}`}
@@ -818,7 +824,7 @@ export function TransactionDialog({
                             : "hover:bg-[var(--muted)]/80"
                         )}
                       >
-                        {emoji}
+                        <AnimatedEmoji emoji={emoji} size={20} />
                       </button>
                     ))}
                   </div>

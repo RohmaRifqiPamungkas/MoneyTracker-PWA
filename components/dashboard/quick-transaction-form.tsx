@@ -20,9 +20,11 @@ import {
 } from "@/components/ui/select";
 import { cn, formatCurrency } from "@/lib/utils";
 import { addTransaction, createCategory, createTransferTransaction } from "@/app/actions";
-import type { BankAccountRow } from "@/lib/supabase/types";
 import type { AvailableTransactionCategories, CategoryOption } from "@/lib/supabase/queries";
-const EMOJI_OPTIONS = ["🏷️", "🎯", "🌟", "💫", "⭐", "🔥", "💎", "🎁", "🎪", "🎭", "🎨", "🎲"];
+import type { BankAccountRow } from "@/lib/supabase/types";
+import { AnimatedEmoji } from "@/components/ui/animated-emoji";
+import fluentEmojisKeys from "@/lib/fluent-emojis-keys.json";
+const EMOJI_OPTIONS = fluentEmojisKeys as string[];
 const COLOR_OPTIONS = ["#10b981", "#6366f1", "#f59e0b", "#3b82f6", "#ec4899", "#14b8a6", "#8b5cf6", "#06b6d4", "#f97316", "#ef4444"];
 
 function slugifyCategoryName(name: string) {
@@ -221,6 +223,10 @@ export function QuickTransactionForm({
         setErrorMsg(result.error || "Gagal menyimpan transaksi");
         setIsLoading(false);
         return;
+      }
+
+      if (typeof window !== "undefined" && window.navigator?.vibrate) {
+        window.navigator.vibrate([30, 50, 30]); // Success vibration pattern
       }
 
       setIsLoading(false);
@@ -436,7 +442,7 @@ export function QuickTransactionForm({
                                     : "border-[var(--card-border)] bg-[var(--muted)]/40 text-[var(--muted-foreground)] hover:bg-[var(--muted)]/75"
                                 )}
                               >
-                                <span className="text-base leading-none">{cat.emoji}</span>
+                                <AnimatedEmoji emoji={cat.emoji} size={16} />
                                 <span className="w-full truncate px-0.5 text-[10px] leading-tight">{cat.name}</span>
                               </button>
                             );
@@ -474,7 +480,7 @@ export function QuickTransactionForm({
 
                           <div className="space-y-1.5">
                             <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">Emoji</Label>
-                            <div className="grid grid-cols-6 gap-2">
+                            <div className="grid grid-cols-6 gap-2 max-h-[140px] overflow-y-auto custom-scrollbar p-1">
                               {EMOJI_OPTIONS.map((emoji) => (
                                 <button
                                   key={emoji}
@@ -487,7 +493,7 @@ export function QuickTransactionForm({
                                       : "border-[var(--card-border)] bg-[var(--card)]"
                                   )}
                                 >
-                                  {emoji}
+                                  <AnimatedEmoji emoji={emoji} size={24} />
                                 </button>
                               ))}
                             </div>
@@ -516,7 +522,7 @@ export function QuickTransactionForm({
 
                           <div className="flex items-center justify-between rounded-xl border border-[var(--card-border)]/40 bg-[var(--card)] px-3 py-2">
                             <div className="flex items-center gap-2">
-                              <span className="text-lg">{newCatEmoji}</span>
+                              <AnimatedEmoji emoji={newCatEmoji} size={24} />
                               <span className="text-sm font-semibold" style={{ color: newCatColor }}>
                                 {newCatName || "Preview kategori"}
                               </span>
