@@ -11,6 +11,17 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'raw.githubusercontent.com',
+      },
+    ],
+  },
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'recharts', 'date-fns', 'framer-motion'],
+  },
   async headers() {
     return [
       // Security headers untuk semua route
