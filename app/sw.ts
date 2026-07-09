@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, RuntimeCaching, SerwistGlobalConfig } from "serwist";
-import { NetworkOnly, Serwist } from "serwist";
+import { NetworkOnly, CacheFirst, ExpirationPlugin, Serwist } from "serwist";
 
 // This declares the value of `injectionPoint` to TypeScript.
 // `injectionPoint` is the string that will be replaced by the
@@ -24,6 +24,18 @@ const runtimeCaching: RuntimeCaching[] = [
       fetchOptions: {
         keepalive: false,
       },
+    }),
+  },
+  {
+    matcher: ({ url }) => url.hostname === "raw.githubusercontent.com",
+    handler: new CacheFirst({
+      cacheName: "github-emojis-cache",
+      plugins: [
+        new ExpirationPlugin({
+          maxEntries: 500, // cache up to 500 emojis (frequently used ones)
+          maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+        }),
+      ],
     }),
   },
   ...defaultCache,
