@@ -53,7 +53,7 @@ export function ExpenseChart({ data }: { data: CategoryExpense[] }) {
                     cx="50%"
                     cy="50%"
                     innerRadius={50}
-                    outerRadius={74}
+                    outerRadius={84}
                     dataKey="amount"
                     paddingAngle={2}
                     onMouseEnter={(_, i) => setActiveIdx(i)}

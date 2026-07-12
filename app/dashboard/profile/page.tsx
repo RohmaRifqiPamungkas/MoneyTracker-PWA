@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ProfileClient } from "@/components/dashboard/profile-client";
+import { getCategories } from "@/lib/supabase/queries";
 
 export const metadata = {
   title: "Profil & Setelan | MoneyTracker",
@@ -12,10 +13,11 @@ export default async function ProfilePage() {
   } = await supabase.auth.getUser();
 
   // Ambil metadata total jumlah baris dari masing-masing tabel di Supabase
-  const [txCount, bankCount, budgetCount] = await Promise.all([
+  const [txCount, bankCount, budgetCount, categories] = await Promise.all([
     supabase.from("transactions").select("*", { count: "exact", head: true }),
     supabase.from("bank_accounts").select("*", { count: "exact", head: true }),
     supabase.from("budget_items").select("*", { count: "exact", head: true }),
+    getCategories(),
   ]);
 
   const stats = {
@@ -27,6 +29,7 @@ export default async function ProfilePage() {
   return (
     <ProfileClient
       stats={stats}
+      categories={categories}
       user={{
         email: user?.email ?? "",
         name: String(user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "Pengguna"),

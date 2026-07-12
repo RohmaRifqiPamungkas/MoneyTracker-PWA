@@ -79,7 +79,7 @@ function SummaryCard({ title, value, growth, subtitle, icon, accentColor, action
 
           {/* Middle: Value / Balance (Card Number style) */}
           <div className="mt-auto mb-3 sm:mb-4">
-             <h3 className="text-xl sm:text-2xl lg:text-[1.7rem] font-bold text-white tracking-widest font-mono drop-shadow-md line-clamp-1">
+             <h3 className="text-lg sm:text-2xl lg:text-[1.7rem] font-bold text-white tracking-wide font-mono drop-shadow-md break-words leading-tight">
                {hidden ? "•••• •••• ••••" : isMounted ? formatCurrency(value) : "Rp0"}
              </h3>
           </div>

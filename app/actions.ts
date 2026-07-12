@@ -209,6 +209,118 @@ export async function createCategory(values: {
   return { success: true, data };
 }
 
+export async function updateCategory(
+  id: string,
+  values: {
+    name: string;
+    emoji: string;
+    color: string;
+  }
+) {
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("categories")
+    .update({
+      name: values.name.trim(),
+      emoji: values.emoji,
+      color: values.color,
+    })
+    .eq("id", id)
+    .eq("user_id", userId)
+    .eq("is_system", false)
+    .select("*")
+    .single();
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidateFinancePages();
+  revalidatePath("/dashboard/budget");
+  return { success: true, data };
+}
+
+export async function deleteCategory(id: string) {
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
+
+  // 1. Cek apakah ada transaksi dengan kategori ini
+  // Kita harus mengambil slug dari kategori ini dulu
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: category } = await (supabase as any)
+    .from("categories")
+    .select("slug, is_system")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .single();
+
+  if (!category) {
+    return { success: false, error: "Kategori tidak ditemukan." };
+  }
+
+  if (category.is_system) {
+    return { success: false, error: "Kategori sistem tidak dapat dihapus." };
+  }
+
+  // Cek transaksi
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { count, error: countError } = await (supabase as any)
+    .from("transactions")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("category", category.slug);
+
+  if (countError) {
+    return { success: false, error: countError.message };
+  }
+
+  if (count && count > 0) {
+    return { success: false, error: `Kategori sedang digunakan oleh ${count} transaksi.` };
+  }
+
+  // Cek budget items
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { count: budgetCount, error: budgetError } = await (supabase as any)
+    .from("budget_items")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("category", category.slug);
+
+  if (budgetError) {
+    return { success: false, error: budgetError.message };
+  }
+
+  if (budgetCount && budgetCount > 0) {
+    return { success: false, error: `Kategori sedang digunakan oleh ${budgetCount} item anggaran.` };
+  }
+
+  // 2. Hapus kategori
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: deleteError } = await (supabase as any)
+    .from("categories")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId)
+    .eq("is_system", false);
+
+  if (deleteError) {
+    return { success: false, error: deleteError.message };
+  }
+
+  revalidateFinancePages();
+  revalidatePath("/dashboard/budget");
+  return { success: true };
+}
+
 export async function createTransferTransaction(values: {
   name: string;
   amount: number;

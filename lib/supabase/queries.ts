@@ -394,29 +394,65 @@ export async function getUpcomingBills(): Promise<UpcomingBillRow[]> {
  */
 export async function getFinancialSummary(month?: number, year?: number) {
   const supabase = await createClient();
-  const { start, end } = getMonthBounds(month, year);
+  const currentDate = new Date();
+  const m = month ?? currentDate.getMonth();
+  const y = year ?? currentDate.getFullYear();
+  
+  const { start, end } = getMonthBounds(m, y);
+  
+  const prevMonth = m === 0 ? 11 : m - 1;
+  const prevYear = m === 0 ? y - 1 : y;
+  const { start: prevStart, end: prevEnd } = getMonthBounds(prevMonth, prevYear);
 
-  const [txResult, bankResult] = await Promise.all([
+  const [txResult, prevTxResult, bankResult] = await Promise.all([
     supabase
       .from("transactions")
       .select("amount, type")
       .gte("date", start)
       .lte("date", end),
+    supabase
+      .from("transactions")
+      .select("amount, type")
+      .gte("date", prevStart)
+      .lte("date", prevEnd),
     supabase.from("bank_accounts").select("balance"),
   ]);
 
   const transactions = (txResult.data ?? []) as Pick<TransactionRow, "amount" | "type">[];
+  const prevTransactions = (prevTxResult.data ?? []) as Pick<TransactionRow, "amount" | "type">[];
   const bankAccounts = (bankResult.data ?? []) as Pick<BankAccountRow, "balance">[];
 
   const totalBalance = bankAccounts.reduce((sum, b) => sum + b.balance, 0);
+  
   const totalIncome = transactions
     .filter((t) => t.type === "income")
     .reduce((sum, t) => sum + t.amount, 0);
   const totalExpenses = transactions
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
+    
+  const prevTotalIncome = prevTransactions
+    .filter((t) => t.type === "income")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const prevTotalExpenses = prevTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((sum, t) => sum + t.amount, 0);
+
   const totalSavings = totalIncome - totalExpenses;
   const savingsRate = totalIncome > 0 ? Math.round((totalSavings / totalIncome) * 100) : 0;
+  
+  // Calculate Growth percentages
+  const calculateGrowth = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Math.round(((current - previous) / previous) * 100);
+  };
+
+  const incomeGrowth = calculateGrowth(totalIncome, prevTotalIncome);
+  const expenseGrowth = calculateGrowth(totalExpenses, prevTotalExpenses);
+  
+  // Estimate previous balance (current balance - this month's net cashflow)
+  const prevTotalBalance = totalBalance - totalSavings;
+  const balanceGrowth = calculateGrowth(totalBalance, prevTotalBalance);
 
   return {
     totalBalance,
@@ -424,9 +460,9 @@ export async function getFinancialSummary(month?: number, year?: number) {
     totalExpenses,
     totalSavings,
     savingsRate,
-    balanceGrowth: 0,
-    incomeGrowth: 0,
-    expenseGrowth: 0,
+    balanceGrowth,
+    incomeGrowth,
+    expenseGrowth,
   };
 }
 

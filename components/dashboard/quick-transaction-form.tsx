@@ -93,6 +93,7 @@ export function QuickTransactionForm({
   const [newCatName, setNewCatName] = useState("");
   const [newCatEmoji, setNewCatEmoji] = useState("🏷️");
   const [newCatColor, setNewCatColor] = useState("#10b981");
+  const [visibleEmojiCount, setVisibleEmojiCount] = useState(60);
 
   const {
     register,
@@ -142,6 +143,21 @@ export function QuickTransactionForm({
     const raw = e.target.value.replace(/\D/g, "");
     setRawAmount(raw);
     setValue("amount", Number(raw), { shouldValidate: true });
+  };
+
+  const handleOpenCustomEditor = () => {
+    setIsCustomEditorOpen(true);
+    setNewCatName("");
+    setNewCatEmoji("🏷️");
+    setNewCatColor("#10b981");
+    setVisibleEmojiCount(60);
+  };
+
+  const handleEmojiScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 50) {
+      setVisibleEmojiCount((prev) => Math.min(prev + 60, EMOJI_OPTIONS.length));
+    }
   };
 
   const handleCreateCategory = async () => {
@@ -480,8 +496,11 @@ export function QuickTransactionForm({
 
                           <div className="space-y-1.5">
                             <Label className="text-[11px] font-medium text-[var(--muted-foreground)]">Emoji</Label>
-                            <div className="grid grid-cols-6 gap-2 max-h-[140px] overflow-y-auto custom-scrollbar p-1">
-                              {EMOJI_OPTIONS.map((emoji) => (
+                            <div 
+                              className="grid grid-cols-6 gap-2 max-h-[140px] overflow-y-auto custom-scrollbar p-1"
+                              onScroll={handleEmojiScroll}
+                            >
+                              {EMOJI_OPTIONS.slice(0, visibleEmojiCount).map((emoji) => (
                                 <button
                                   key={emoji}
                                   type="button"

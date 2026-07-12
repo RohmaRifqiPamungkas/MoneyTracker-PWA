@@ -24,6 +24,8 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { signOutAction } from "@/lib/auth/actions";
 import { PasskeySettingsCard } from "@/components/auth/passkey-settings-card";
+import { CategorySettingsCard } from "@/components/dashboard/category-settings-card";
+import type { CategoryRow } from "@/lib/supabase/types";
 
 interface ProfileClientProps {
   stats: {
@@ -35,9 +37,10 @@ interface ProfileClientProps {
     name: string;
     email: string;
   };
+  categories: CategoryRow[];
 }
 
-export function ProfileClient({ stats, user }: ProfileClientProps) {
+export function ProfileClient({ stats, user, categories }: ProfileClientProps) {
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator === "undefined" ? true : navigator.onLine
   );
@@ -166,6 +169,8 @@ export function ProfileClient({ stats, user }: ProfileClientProps) {
             <p className="text-base sm:text-xl font-bold text-[var(--foreground)] mt-1 tabular-nums">{stats.budgets}</p>
           </Card>
         </div>
+
+        <CategorySettingsCard categories={categories} />
 
         <PasskeySettingsCard />
 
