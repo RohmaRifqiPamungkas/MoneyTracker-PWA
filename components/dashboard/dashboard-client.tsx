@@ -259,7 +259,7 @@ export function DashboardClient({
       if (!("Notification" in window) || sessionStorage.getItem("budget_notif_sent")) return;
 
       const overBudgetItems = budgetItems.filter(
-        (b) => b.amount > 0 && (b.spent / b.amount) > 0.8
+        (b) => b.limit > 0 && (b.spent / b.limit) > 0.8
       );
 
       if (overBudgetItems.length > 0) {
