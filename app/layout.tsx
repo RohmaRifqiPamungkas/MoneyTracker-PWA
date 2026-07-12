@@ -33,6 +33,9 @@ export const viewport: Viewport = {
 };
 
 
+import { ThemeProvider } from "@/components/providers/theme-provider";
+import { AppLockProvider } from "@/components/providers/app-lock-provider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -41,9 +44,13 @@ export default function RootLayout({
   return (
     <html lang="id" className={`${geist.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full bg-[var(--background)] text-[var(--foreground)]">
-        <SwRegister />
-        {children}
-        <InstallPrompt />
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+          <AppLockProvider>
+            <SwRegister />
+            {children}
+            <InstallPrompt />
+          </AppLockProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

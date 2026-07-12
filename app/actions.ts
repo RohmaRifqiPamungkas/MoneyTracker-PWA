@@ -166,6 +166,67 @@ export async function addTransaction(values: TransactionMutationValues) {
   return { success: true, data };
 }
 
+export async function deleteMultipleTransactions(ids: string[]) {
+  const { supabase, userId } = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return { success: false, error: "Anda harus login terlebih dahulu." };
+  }
+
+  if (!ids || ids.length === 0) {
+    return { success: true };
+  }
+
+  // 1. Fetch all transactions first to rollback balances
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: txs, error: txError } = await (supabase as any)
+    .from("transactions")
+    .select("id, name, amount, type, category, date, notes, bank_account_id, transfer_account_id")
+    .in("id", ids);
+
+  if (txError || !txs) {
+    return { success: false, error: txError?.message || "Gagal mengambil data transaksi." };
+  }
+
+  // 2. Delete all
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from("transactions")
+    .delete()
+    .in("id", ids);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  // 3. Rollback balances & budgets sequentially
+  try {
+    for (const tx of txs) {
+      const snapshot = tx as TransactionSnapshot;
+      if (snapshot.type === "transfer") {
+        await applyAccountDelta(supabase, snapshot.bank_account_id, snapshot.amount);
+        if (snapshot.transfer_account_id) {
+          await applyAccountDelta(supabase, snapshot.transfer_account_id, -snapshot.amount);
+        }
+      } else {
+        await applyAccountDelta(supabase, snapshot.bank_account_id, -getAccountDelta(snapshot));
+      }
+
+      if (snapshot.type === "expense") {
+        await applyBudgetDelta(supabase, snapshot.category, -snapshot.amount);
+      }
+    }
+  } catch (updateError) {
+    return {
+      success: false,
+      error: updateError instanceof Error ? updateError.message : "Gagal rollback saldo massal.",
+    };
+  }
+
+  revalidateFinancePages();
+  return { success: true };
+}
+
 export async function createCategory(values: {
   name: string;
   slug: string;

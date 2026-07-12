@@ -25,6 +25,8 @@ import { createClient } from "@/lib/supabase/client";
 import { signOutAction } from "@/lib/auth/actions";
 import { PasskeySettingsCard } from "@/components/auth/passkey-settings-card";
 import { CategorySettingsCard } from "@/components/dashboard/category-settings-card";
+import { ThemeSettingsCard } from "@/components/dashboard/theme-settings-card";
+import { AppLockSettingsCard } from "@/components/dashboard/app-lock-settings-card";
 import type { CategoryRow } from "@/lib/supabase/types";
 
 interface ProfileClientProps {
@@ -172,7 +174,9 @@ export function ProfileClient({ stats, user, categories }: ProfileClientProps) {
 
         <CategorySettingsCard categories={categories} />
 
+        <AppLockSettingsCard />
         <PasskeySettingsCard />
+        <ThemeSettingsCard />
 
         {/* Supabase Diagnostic */}
         <Card className="shadow-sm border-[var(--card-border)]">

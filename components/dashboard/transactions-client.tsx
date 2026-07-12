@@ -20,6 +20,8 @@ import {
   X,
   CreditCard,
   PencilLine,
+  Square,
+  CheckSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,7 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
-import { removeTransaction } from "@/app/actions";
+import { removeTransaction, deleteMultipleTransactions } from "@/app/actions";
 import { EditTransactionDialog } from "@/components/dashboard/edit-transaction-dialog";
 import type { TransactionRow, BankAccountRow } from "@/lib/supabase/types";
 import type { TransactionType } from "@/lib/types";
@@ -100,6 +102,8 @@ export function TransactionsClient({
   const [page, setPage] = useState(1);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<TransactionRow | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // State laci filter mobile
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
@@ -159,12 +163,46 @@ export function TransactionsClient({
     try {
       const res = await removeTransaction(id);
       if (res && !res.success) alert(res.error || "Gagal menghapus");
+      setSelectedIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
     } catch {
       alert("Terjadi kesalahan jaringan.");
     } finally {
       setDeletingId(null);
     }
   };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0 || isBulkDeleting) return;
+    if (!confirm(`Hapus ${selectedIds.size} transaksi terpilih secara permanen?`)) return;
+
+    setIsBulkDeleting(true);
+    try {
+      const res = await deleteMultipleTransactions(Array.from(selectedIds));
+      if (res && !res.success) {
+        alert(res.error || "Gagal menghapus beberapa transaksi");
+      } else {
+        setSelectedIds(new Set());
+      }
+    } catch {
+      alert("Terjadi kesalahan saat menghapus massal.");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
 
   const handleExportCSV = () => {
     if (filteredAndSorted.length === 0) return alert("Data kosong");
@@ -442,8 +480,19 @@ export function TransactionsClient({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.98 }}
                       transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.12) }}
-                      className="group flex items-center justify-between gap-3 px-4 py-3.5 bg-[var(--card)] border border-[var(--card-border)]/50 sm:hover:border-[var(--card-border)] sm:hover:bg-[var(--muted)]/20 rounded-2xl shadow-sm/5 transition-all duration-200"
+                      className={`group flex items-center justify-between gap-3 px-4 py-3.5 bg-[var(--card)] border border-[var(--card-border)]/50 sm:hover:border-[var(--card-border)] sm:hover:bg-[var(--muted)]/20 rounded-2xl shadow-sm/5 transition-all duration-200 ${selectedIds.has(tx.id) ? "ring-2 ring-emerald-500 bg-emerald-500/5" : ""}`}
                     >
+                      <button
+                        onClick={() => toggleSelection(tx.id)}
+                        className="text-[var(--muted-foreground)] hover:text-emerald-500 shrink-0"
+                      >
+                        {selectedIds.has(tx.id) ? (
+                          <CheckSquare className="h-5 w-5 text-emerald-500" />
+                        ) : (
+                          <Square className="h-5 w-5" />
+                        )}
+                      </button>
+
                       <div className="flex items-center gap-3.5 min-w-0 flex-1">
                         {/* Avatar Emoji */}
                         <div
@@ -542,6 +591,48 @@ export function TransactionsClient({
           )}
         </div>
       </main>
+
+      {/* ── BULK ACTION BAR ─────────────────────────── */}
+      <AnimatePresence>
+        {selectedIds.size > 0 && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-[var(--card)] border border-[var(--card-border)] rounded-2xl p-3 flex items-center gap-4 shadow-2xl min-w-[300px]"
+          >
+            <div className="flex-1 flex items-center gap-2 px-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 text-xs font-bold">
+                {selectedIds.size}
+              </span>
+              <span className="text-sm font-semibold text-[var(--foreground)]">Terpilih</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              >
+                Batal
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleBulkDelete}
+                disabled={isBulkDeleting}
+                className="bg-rose-500 hover:bg-rose-600 text-white text-xs gap-1.5 rounded-xl shadow-sm"
+              >
+                {isBulkDeleting ? (
+                  <span className="block h-3.5 w-3.5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                Hapus
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── NATIVE MOBILE BOTTOM SHEET FILTER DRAWER ─────────── */}
       <AnimatePresence>

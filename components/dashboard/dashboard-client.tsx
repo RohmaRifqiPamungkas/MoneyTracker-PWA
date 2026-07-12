@@ -251,6 +251,33 @@ export function DashboardClient({
     setIsMounted(true);
   }, []);
 
+  // Fitur Notifikasi Budget Lokal (Hanya jalan sekali per sesi)
+  useEffect(() => {
+    if (!isMounted) return;
+
+    const checkBudgetNotification = async () => {
+      if (!("Notification" in window) || sessionStorage.getItem("budget_notif_sent")) return;
+
+      const overBudgetItems = budgetItems.filter(
+        (b) => b.amount > 0 && (b.spent / b.amount) > 0.8
+      );
+
+      if (overBudgetItems.length > 0) {
+        const permission = await Notification.requestPermission();
+        if (permission === "granted") {
+          new Notification("Peringatan Anggaran!", {
+            body: `Hati-hati! ${overBudgetItems.length} kategori anggaran Anda (seperti ${overBudgetItems[0].category}) sudah terpakai lebih dari 80%.`,
+            icon: "/icon512_maskable.png",
+          });
+          sessionStorage.setItem("budget_notif_sent", "true");
+        }
+      }
+    };
+
+    const timer = setTimeout(checkBudgetNotification, 2000);
+    return () => clearTimeout(timer);
+  }, [budgetItems, isMounted]);
+
   const tabs = [
     { id: "stats", label: "Analisis", icon: <TrendingUp className="h-4 w-4" /> },
     { id: "wallet", label: "Transaksi", icon: <Wallet className="h-4 w-4" /> },
