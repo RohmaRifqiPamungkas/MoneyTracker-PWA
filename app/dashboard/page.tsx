@@ -1,5 +1,5 @@
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
-import { FINANCIAL_INSIGHTS } from "@/lib/mock-data";
+
 import {
   getTransactions,
   getBankAccounts,
@@ -65,7 +65,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       summary={summary}
       monthlyData={monthlyData}
       categoryExpenses={categoryExpenses}
-      insights={FINANCIAL_INSIGHTS}
+      insights={[]}
       transactions={transactions}
       bankAccounts={bankAccounts}
       availableCategories={availableCategories}
