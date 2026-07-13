@@ -456,7 +456,7 @@ export function DashboardClient({
 
             <div className="grid gap-5 md:grid-cols-2">
               <ExpenseChart data={categoryExpenses} />
-              <FinancialInsights insights={insights} />
+              <FinancialInsights initialInsights={insights} month={currentMonth} year={currentYear} />
             </div>
 
             <RecentTransactions transactions={transactions} bankAccounts={bankAccounts} availableCategories={availableCategories} />
@@ -487,7 +487,7 @@ export function DashboardClient({
                 <CashflowChart data={monthlyData} />
                 <BankAccountsWidget accounts={bankAccounts} />
                 <ExpenseChart data={categoryExpenses} />
-                <FinancialInsights insights={insights} />
+                <FinancialInsights initialInsights={insights} month={currentMonth} year={currentYear} />
               </motion.div>
             )}
 
